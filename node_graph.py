@@ -67,7 +67,7 @@ class NodeGraph:
 
         # Init inputs to correct len arrays
         for n in self.nodes:
-            inputMap[n.nodeID] = [None for _ in n.INPUTS]
+            inputMap[n.nodeID] = [None for _ in n.inputs]
 
         for n in self.traversal:
             outputs = n.execute(inputMap[n.nodeID])

@@ -2,6 +2,10 @@
 from example_nodes import const_source, nullable_input, output_node, sum_node
 from node_graph import NodeGraph
 
+from tk_node_graph import TKNodeGraph, NodeManager, Vec
+
+import tkinter as tk
+
 if __name__ == '__main__':
     ng = NodeGraph()
 
@@ -16,12 +20,31 @@ if __name__ == '__main__':
 
     ng.addNodes(p, s, o)
 
-    src1.addChild(p, src1.o.value, p.i.base)
-    src2.addChild(p, src2.o.value, p.i.power)
+    src1.addChild(p, 0, 0)
+    src2.addChild(p, 0, 1)
 
-    p.addChild(s, p.o.value, s.i.a)
-    src2.addChild(s, src2.o.value, s.i.b)
+    p.addChild(s, 0, 0)
+    src2.addChild(s, 0, 1)
 
-    s.addChild(o, s.o.value, o.i.value)
+    s.addChild(o, 0, 0)
 
-    ng.execute()
+    root = tk.Tk()
+    root.columnconfigure(0, weight=1)
+    root.rowconfigure(0, weight=1)
+
+    f = tk.LabelFrame(root, text='CANVAS')
+    f.grid(row=0, column=0, sticky='nesw')
+
+    f.columnconfigure(0, weight=1)
+    f.rowconfigure(0, weight=1)
+
+    nodeMan = NodeManager()
+
+    nodeMan.addNode(src1, Vec(30, 20))
+    nodeMan.addNode(s, Vec(200, 20))
+    nodeMan.addNode(p, Vec(100, 100))
+
+    nGraph = TKNodeGraph(f, nodeMan)
+    nGraph.grid(row=0, column=0, sticky='nesw')
+
+    root.mainloop()
