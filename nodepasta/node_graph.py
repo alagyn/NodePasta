@@ -1,8 +1,8 @@
 from collections import deque
-from typing import Dict, List, Deque, Optional, Set
+from typing import Dict, List, Set
 
-from node import Node
-from ng_errors import ExecutionError
+from .node import Node
+from .ng_errors import ExecutionError
 
 class NodeGraph:
     def __init__(self):
@@ -10,7 +10,8 @@ class NodeGraph:
 
         self.nodeLookup: Dict[int, Node] = {}
 
-        self.traversal: Optional[List[Node]] = None
+        # noinspection PyTypeChecker
+        self.traversal: List[Node] = None
 
     def addNodes(self, *nodes: Node):
         for n in nodes:
@@ -22,7 +23,7 @@ class NodeGraph:
     def _recurGenTraversal(self, out: deque[Node], curNode: Node, ahead: Set[int], behind: Set[int]):
         ahead.add(curNode.nodeID)
 
-        for child in curNode.children.keys():
+        for child in curNode:
             if child in ahead:
                 # TODO better logging
                 raise ExecutionError(f"Circular Dependancy Detected, Parent: {curNode}, Child: {self.nodeLookup[child]}")
@@ -56,7 +57,7 @@ class NodeGraph:
                 continue
             self._recurGenTraversal(newQ, curItem, ahead, behind)
 
-        self.traversal = list(newQ)
+        self.traversal: List[Node] = list(newQ)
 
     def execute(self):
         if self.traversal is None:
@@ -67,16 +68,16 @@ class NodeGraph:
 
         # Init inputs to correct len arrays
         for n in self.nodes:
-            inputMap[n.nodeID] = [None for _ in n.inputs]
+            inputMap[n.nodeID] = [None] * n.numInputs()
 
         for n in self.traversal:
             outputs = n.execute(inputMap[n.nodeID])
 
-            for childID, (outIdx, inIdx) in n.children.items():
-                print(n, self.nodeLookup[childID], outIdx, inIdx)
+            for link in n.links():
+                print(n, self.nodeLookup[link.child.nodeID], link.outIdx, link.inIdx)
                 try:
-                    if inputMap[childID][inIdx] is None:
-                        inputMap[childID][inIdx] = outputs[outIdx]
+                    if inputMap[link.child.nodeID][link.inIdx] is None:
+                        inputMap[link.child.nodeID][link.inIdx] = outputs[link.outIdx]
                     else:
                         # TODO better logging
                         raise ExecutionError("Input already assigned")

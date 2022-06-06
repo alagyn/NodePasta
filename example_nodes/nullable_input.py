@@ -1,10 +1,10 @@
 from typing import List, Any
 
-from node import Node, I, O
+from nodepasta.node import Node, InPort, OutPort
 
 class Power(Node):
-    _INPUTS = [I("base", float), I("power", float)]
-    _OUTPUTS = [O("value", float)]
+    _INPUTS = [InPort("base", "float"), InPort("power", "float")]
+    _OUTPUTS = [OutPort("value", "float")]
 
     def _execute(self, inputs: List[Any]) -> List[Any]:
         if inputs[1] is None:

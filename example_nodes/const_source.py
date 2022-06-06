@@ -1,9 +1,9 @@
 from typing import List, Any
 
-from node import Node, O
+from nodepasta.node import Node, OutPort
 
 class ConstSource(Node):
-    _OUTPUTS = [O("value", float)]
+    _OUTPUTS = [OutPort("value", "float")]
 
     def __init__(self, value: float):
         super().__init__()

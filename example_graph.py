@@ -1,8 +1,8 @@
 
 from example_nodes import const_source, nullable_input, output_node, sum_node
-from node_graph import NodeGraph
+from nodepasta.node_graph import NodeGraph
 
-from tk_node_graph import TKNodeGraph, NodeManager, Vec
+from nodepasta.tk_node_graph import TKNodeGraph, NodeManager, Vec
 
 import tkinter as tk
 
@@ -14,19 +14,19 @@ if __name__ == '__main__':
 
     ng.addNodes(src1, src2)
 
-    p = nullable_input.Power()
-    s = sum_node.SumNode()
-    o = output_node.OutputNode()
+    powerN = nullable_input.Power()
+    sumN = sum_node.SumNode()
+    outN = output_node.OutputNode()
 
-    ng.addNodes(p, s, o)
+    ng.addNodes(powerN, sumN, outN)
 
-    src1.addChild(p, 0, 0)
-    src2.addChild(p, 0, 1)
+    src1.addChild(powerN, 0, 0)
+    src2.addChild(powerN, 0, 1)
 
-    p.addChild(s, 0, 0)
-    src2.addChild(s, 0, 1)
+    powerN.addChild(sumN, 0, 0)
+    src2.addChild(sumN, 0, 1)
 
-    s.addChild(o, 0, 0)
+    sumN.addChild(outN, 0, 0)
 
     root = tk.Tk()
     root.columnconfigure(0, weight=1)
@@ -41,8 +41,11 @@ if __name__ == '__main__':
     nodeMan = NodeManager()
 
     nodeMan.addNode(src1, Vec(30, 20))
-    nodeMan.addNode(s, Vec(200, 20))
-    nodeMan.addNode(p, Vec(100, 100))
+    nodeMan.addNode(sumN, Vec(200, 20))
+    nodeMan.addNode(powerN, Vec(100, 100))
+    nodeMan.addNode(outN, Vec(300, 100))
+
+    nodeMan.setPortTypeColor("float", "lightgreen")
 
     nGraph = TKNodeGraph(f, nodeMan)
     nGraph.grid(row=0, column=0, sticky='nesw')

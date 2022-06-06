@@ -1,8 +1,8 @@
 from typing import Any, List
-from node import Node, I
+from nodepasta.node import Node, InPort
 
 class OutputNode(Node):
-    _INPUTS = [I("value", Any)]
+    _INPUTS = [InPort("value", allowAny=True)]
 
     def _execute(self, inputs: List[Any]) -> List[Any]:
         print(inputs[0])
