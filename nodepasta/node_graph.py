@@ -1,37 +1,55 @@
 from collections import deque
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Iterator, Tuple, Optional
 
-from .node import Node
-from .ng_errors import ExecutionError
+from .node import Node, Link
+from .ng_errors import ExecutionError, NodeGraphError
 
 class NodeGraph:
     def __init__(self):
-        self.nodes: List[Node] = []
-
         self.nodeLookup: Dict[int, Node] = {}
-
         # noinspection PyTypeChecker
         self.traversal: List[Node] = None
+
+    def __len__(self) -> int:
+        return len(self.nodeLookup)
+
+    def __iter__(self) -> Iterator[Node]:
+        return self.nodeLookup.values().__iter__()
 
     def addNodes(self, *nodes: Node):
         for n in nodes:
             if n.nodeID not in self.nodeLookup:
-                self.nodes.append(n)
                 self.nodeLookup[n.nodeID] = n
         self.traversal = None
+
+    def makeLink(self, parent: Node, outIdx: int,
+                 child: Node, inIdx: int) -> Tuple[Link, Optional[Link]]:
+        if parent.nodeID not in self.nodeLookup:
+            raise NodeGraphError(f'NodeGraph.makeLink() Cannot make link, '
+                                 f'parent not in this graph: "{str(parent)}"')
+        if child.nodeID not in self.nodeLookup:
+            raise NodeGraphError(f'NodeGraph.makeLink() Cannot make link, '
+                                 f'child not in this graph: "{str(child)}"')
+
+        # noinspection PyProtectedMember
+        out = parent._addChild(child, outIdx, inIdx)
+        self.traversal = None
+        return out
 
     def _recurGenTraversal(self, out: deque[Node], curNode: Node, ahead: Set[int], behind: Set[int]):
         ahead.add(curNode.nodeID)
 
-        for child in curNode:
-            if child in ahead:
+        for link in curNode:
+            childID = link.child.nodeID
+            if childID in ahead:
                 # TODO better logging
-                raise ExecutionError(f"Circular Dependancy Detected, Parent: {curNode}, Child: {self.nodeLookup[child]}")
-            if child in behind:
+                raise ExecutionError(
+                    f"Circular Dependancy Detected, Parent: {curNode}, Child: {link.child}")
+            if childID in behind:
                 # Skip if already behind
                 continue
 
-            node = self.nodeLookup[child]
+            node = link.child
             self._recurGenTraversal(out, node, ahead, behind)
 
         ahead.remove(curNode.nodeID)
@@ -39,13 +57,12 @@ class NodeGraph:
         # print(f'Adding {curNode}')
         out.appendleft(curNode)
 
-
     def genTraversal(self):
         newQ = deque()
         ahead: Set[int] = set()
         behind: Set[int] = set()
 
-        q = deque(self.nodes)
+        q = deque(self.nodeLookup.values())
 
         while len(q) > 0:
             if len(ahead) > 0:
@@ -64,17 +81,18 @@ class NodeGraph:
             self.genTraversal()
 
         # NodeID -> input list
-        inputMap: Dict[int, List[any]]  = {}
+        inputMap: Dict[int, List[any]] = {}
 
         # Init inputs to correct len arrays
-        for n in self.nodes:
+        for n in self.nodeLookup.values():
             inputMap[n.nodeID] = [None] * n.numInputs()
 
         for n in self.traversal:
             outputs = n.execute(inputMap[n.nodeID])
 
-            for link in n.links():
-                print(n, self.nodeLookup[link.child.nodeID], link.outIdx, link.inIdx)
+            for link in n:
+                # TODO remove
+                # print(n, self.nodeLookup[link.child.nodeID], link.outIdx, link.inIdx)
                 try:
                     if inputMap[link.child.nodeID][link.inIdx] is None:
                         inputMap[link.child.nodeID][link.inIdx] = outputs[link.outIdx]

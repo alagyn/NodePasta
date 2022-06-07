@@ -2,41 +2,63 @@ import tkinter as tk
 from tkinter import ttk
 from enum import IntEnum
 
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Iterator
 
-from .node import Node
+from .node import Node, IOPort, Link
+from .node_graph import NodeGraph
+from .utils import Vec
 from .ng_errors import NodeGraphError
 
 
-class Vec:
-    def __init__(self, x=0, y=0):
-        self.x = x
-        self.y = y
+# region Helper Classes
+
+class _PortIO(IntEnum):
+    IN = 0
+    OUT = 1
 
 
-class PosNode:
-    def __init__(self, node: Node, pos: Optional[Vec] = None):
+class _PosNode:
+    def __init__(self, node: Node, canvasID: int, nodeTag: str, pos: Optional[Vec] = None,
+                 iPorts: List['_PortRef'] = None, oPorts: List['_PortRef'] = None, links: List['_LinkRef'] = None):
         self.node = node
         self.pos = pos if pos is not None else Vec()
+        self.iPorts = [] if iPorts is None else iPorts
+        self.oPorts = [] if oPorts is None else oPorts
+        self.links = [] if links is None else links
+
+        self.canvasID = canvasID
+        self.nodeTag = nodeTag
+
+    def __iter__(self) -> Iterator[Link]:
+        return self.node.links()
+
+    def __str__(self):
+        return f"PosNode({self.node}, pos: {self.pos})"
 
 
-class NodeManager:
-    def __init__(self):
-        self.nodes: List[PosNode] = []
-        self.portColors: Dict[str, str] = {}
+class _PortRef:
+    def __init__(self, canvasID, node: _PosNode, idx: int, io: _PortIO, typeStr: str):
+        self.canvasID = canvasID
+        self.posNode = node
+        self.idx = idx
+        self.io = io
+        self.typeStr = typeStr
 
-    def addNode(self, n: Node, pos: Optional[Vec] = None):
-        self.nodes.append(PosNode(n, pos))
 
-    def setPortTypeColor(self, typeStr: str, color: str):
-        self.portColors[typeStr] = color
+class _LinkRef:
+    def __init__(self, canvasID: int, parent: _PosNode, child: _PosNode, outPort: _PortRef, inPort: _PortRef, link: Link):
+        self.canvasID = canvasID
+        self.parent = parent
+        self.child = child
+        self.oPort = outPort
+        self.iPort = inPort
+        self.link = link
 
-    def __len__(self):
-        return len(self.nodes)
 
-    def __iter__(self):
-        return self.nodes.__iter__()
+# endregion
 
+
+# region Consts
 
 PORT_VERT_OFFSET = 10
 PORT_HORZ_OFFSET = 0
@@ -46,45 +68,22 @@ HALF_PORT = PORT_SIZE / 2
 
 IO_HEIGHT = PORT_SIZE * 2
 
-LINE_WIDTH = 4
+LINK_WIDTH = 4
 
 PORT_TAG = 'port'
 NODE_TAG = "node"
 DEF_PORT_COLOR = "grey50"
 
 
-class _PortIO(IntEnum):
-    IN = 0
-    OUT = 1
-
-
-class _PortRef:
-    def __init__(self, portID, node: Node, idx: int, io: _PortIO, color: str):
-        self.portID = portID
-        self.node = node
-        self.idx = idx
-        self.io = io
-        self.color = color
-
-
-class _LinkRef:
-    def __init__(self, parent: Node, child: Node, outPort: _PortRef, inPort: _PortRef):
-        self.parent = parent
-        self.child = child
-        self.oPort = outPort
-        self.iPort = inPort
-
-
-class _NodeRef:
-    def __init__(self, node: Node):
-        self.node = node
-
+# endregion
 
 class TKNodeGraph(tk.Frame):
-    def __init__(self, parent, nodeMan: NodeManager):
+    def __init__(self, parent, nodeGraph: NodeGraph):
         super().__init__(parent)
 
-        self.nodeMan = nodeMan
+        self.nodeGraph = nodeGraph
+
+        self.portColors: Dict[str, str] = {}
 
         self.rowconfigure(0, weight=3)
         self.rowconfigure(1, weight=1)
@@ -102,22 +101,30 @@ class TKNodeGraph(tk.Frame):
         self._draggingPort = False
         self._draggingNode = False
         self._dragStart = Vec()
-        self._curPortLineID = 0
+        self._curDragCID = 0
+        self._curNode = None
         self._curPortID = 0
 
         self._lowestNode = None
 
+        # Node ID -> PosNode
+        self._idToNode: Dict[int, _PosNode] = {}
+        # Node Canvas ID -> PosNode
+        self._canvToNodeRef: Dict[int, _PosNode] = {}
+
         # Port Canvas ID -> PortRef
-        self._portRefs: Dict[int, _PortRef] = {}
-        # Node Canvas ID -> NodeRef
-        self._nodeRefs: Dict[int, _NodeRef] = {}
+        self._canvToPortRef: Dict[int, _PortRef] = {}
+
+        # Link ID -> LinkRef
+        self._idToLink: Dict[int, _LinkRef] = {}
         # Link Canvas ID -> LinkRef
-        self._linkRefs: Dict[int, _LinkRef] = {}
+        self._canvToLinkRef: Dict[int, _LinkRef] = {}
 
         # Do last?
-        if len(self.nodeMan) > 0:
-            self.loadNodesFromManager()
+        if len(self.nodeGraph) > 0:
+            self.reloadGraph()
 
+    # region Setup Funcs
     def _bindNodeEvents(self):
         self.nodeCanvas.tag_bind(NODE_TAG, "<Enter>", self._hoverNode)
         self.nodeCanvas.tag_bind(NODE_TAG, "<Leave>", self._unhoverNode)
@@ -129,15 +136,35 @@ class TKNodeGraph(tk.Frame):
         self.nodeCanvas.tag_bind(PORT_TAG, "<B1-Motion>", self._startPortDrag)
         self.nodeCanvas.bind("<ButtonRelease-1>", self._releasedDrag)
 
-    def loadNodesFromManager(self):
-        for node in self.nodeMan:
-            self._drawNode(node)
+    # endregion
 
-    def _drawPort(self, x, y, fill: str, nodeTag: str) -> int:
-        a = x - HALF_PORT
-        b = y - HALF_PORT
-        return self.nodeCanvas.create_oval(a, b, a + PORT_SIZE, b + PORT_SIZE, fill=fill, tags=[PORT_TAG, nodeTag])
+    def reloadGraph(self):
+        for node in self.nodeGraph:
+            try:
+                posNode = self._idToNode[node.nodeID]
+                self._updateNode(posNode)
+            except KeyError:
+                self._makeNewNode(node)
 
+        for node in self.nodeGraph:
+            for link in node:
+                try:
+                    linkRef = self._idToLink[link.linkID]
+                    self._updateLink(linkRef)
+                except KeyError:
+                    self._makeNewLink(link)
+
+
+    def _current(self) -> int:
+        return self.nodeCanvas.find_withtag(tk.CURRENT)[0]
+
+    def setPortTypeColor(self, typeStr: str, color: str):
+        self.portColors[typeStr] = color
+
+    def setPos(self, n: Node, pos: Vec):
+        self._idToNode[n.nodeID].pos = pos
+
+    # region Hover Events
     def _hoverPortEvent(self, _):
         portID = self._current()
         self._hoverPort(portID)
@@ -161,6 +188,94 @@ class TKNodeGraph(tk.Frame):
         c = self._current()
         self.nodeCanvas.itemconfigure(c, outline="black")
 
+    # endregion
+
+    # region Drag Events
+    def _startPortDrag(self, e):
+        # TODO differentiate between draggin in/out port
+        #   dragging from out ports allows multiple links
+        #   dragging from in ports grabs the end a link, if it exists,
+        #   since there can only be one link into in an input
+        if not self._draggingPort:
+            self._draggingPort = True
+            portID = self._current()
+            self._curPortID = portID
+
+            self._dragStart = self._portCoords(portID)
+
+            # TODO color
+            self._curDragCID = self.nodeCanvas.create_line(self._dragStart.x, self._dragStart.y, e.x, e.y,
+                                                           fill="grey50", width=LINK_WIDTH)
+            self.nodeCanvas.lower(self._curDragCID, self._lowestNode)
+        else:
+            self.nodeCanvas.coords(self._curDragCID, self._dragStart.x, self._dragStart.y, e.x, e.y)
+
+    def _startNodeDrag(self, e):
+        if not self._draggingNode:
+            self._draggingNode = True
+            self._curDragCID = self._current()
+            self._curNode = self._canvToNodeRef[self._curDragCID]
+            self._dragStart = self._curNode.pos - Vec(e.x, e.y)
+
+        self._curNode.pos = Vec(e.x, e.y) + self._dragStart
+        self._updateNode(self._curNode)
+
+        for link in self._curNode.links:
+            self._updateLink(link)
+
+    def _releaseLinkDrag(self):
+        self._draggingPort = False
+        c = self._current()
+        fail = True
+        try:
+            portRef1 = self._canvToPortRef[c]
+            portRef2 = self._canvToPortRef[self._curPortID]
+
+            if c != self._curPortID and portRef1.io != portRef2.io:
+                fail = False
+
+                self.nodeCanvas.delete(self._curDragCID)
+
+                if portRef1.io == _PortIO.IN:
+                    child = portRef1.posNode.node
+                    parent = portRef2.posNode.node
+
+                    inIdx = portRef1.idx
+                    outIdx = portRef2.idx
+                else:
+                    child = portRef2.posNode.node
+                    parent = portRef1.posNode.node
+
+                    inIdx = portRef2.idx
+                    outIdx = portRef1.idx
+
+                link, removed = parent.addChild(child, outIdx, inIdx)
+
+                if removed is not None:
+                    linkRef = self._idToLink[removed.linkID]
+                    self.nodeCanvas.delete(linkRef.canvasID)
+
+                self._makeNewLink(link)
+
+        except KeyError:
+            pass
+
+        if fail:
+            self.nodeCanvas.delete(self._curDragCID)
+
+    def _releaseNodeDrag(self):
+        self._draggingNode = False
+
+    def _releasedDrag(self, _):
+        if self._draggingPort:
+            self._releaseLinkDrag()
+        if self._draggingNode:
+            self._releaseNodeDrag()
+
+    # endregion
+
+    # region Port Utils
+
     def _portCoords(self, portID: int) -> Vec:
         # noinspection PyTypeChecker
         c = self.nodeCanvas.coords(portID)
@@ -170,119 +285,125 @@ class TKNodeGraph(tk.Frame):
         # noinspection PyTypeChecker
         return Vec(x, y)
 
-    def _startPortDrag(self, e):
-        if not self._draggingPort:
-            self._draggingPort = True
-            portID = self._current()
-            self._curPortID = portID
-
-            self._dragStart = self._portCoords(portID)
-
-            # TODO color
-            self._curPortLineID = self.nodeCanvas.create_line(self._dragStart.x, self._dragStart.y, e.x, e.y,
-                                                              fill="grey50", width=LINE_WIDTH)
-            self.nodeCanvas.lower(self._curPortLineID, self._lowestNode)
-        else:
-            self.nodeCanvas.coords(self._curPortLineID, self._dragStart.x, self._dragStart.y, e.x, e.y)
-
-    def _startNodeDrag(self, e):
-        if not self._draggingNode:
-            self._draggingNode = True
-            nodeID = self._current()
-
-    def _current(self) -> int:
-        return self.nodeCanvas.find_withtag(tk.CURRENT)[0]
-
-    def _releaseLinkDrag(self):
-        self._draggingPort = False
-        c = self._current()
-        fail = True
+    def _getTypeColor(self, typeStr: str) -> str:
         try:
-            ref = self._portRefs[c]
-            ref2 = self._portRefs[self._curPortID]
-
-            if c != self._curPortID and ref.io != ref2.io:
-                fail = False
-
-                loc = self._portCoords(c)
-                self.nodeCanvas.coords(self._curPortLineID, self._dragStart.x, self._dragStart.y, loc.x, loc.y)
-
-                # TODO make link
+            return self.portColors[typeStr]
         except KeyError:
             pass
 
-        if fail:
-            self.nodeCanvas.delete(self._curPortLineID)
-
-    def _releaseNodeDrag(self):
-        # TODO
-        self._draggingNode = False
-
-    def _releasedDrag(self, _):
-        if self._draggingPort:
-            self._releaseLinkDrag()
-        if self._draggingNode:
-            self._releaseNodeDrag()
-
-    def _getPortColor(self, portID: int) -> str:
-        try:
-            ref = self._portRefs[portID]
-            return ref.color
-        except KeyError:
-            pass
-
+        self.portColors[typeStr] = DEF_PORT_COLOR
         return DEF_PORT_COLOR
 
-    def _drawNode(self, n: PosNode):
-        minNodes = max(n.node.numInputs(), n.node.numOutputs())
+    def _getPortColor(self, portID: int) -> str:
+        return self._getTypeColor(self._canvToPortRef[portID].typeStr)
+
+    def _drawPort(self, x, y, fill: str, nodeTag: str) -> int:
+        a = x - HALF_PORT
+        b = y - HALF_PORT
+        return self.nodeCanvas.create_oval(a, b, a + PORT_SIZE, b + PORT_SIZE, fill=fill, tags=[PORT_TAG, nodeTag])
+
+    # endregion
+
+    def _updateNode(self, n: _PosNode):
+        # noinspection PyTypeChecker
+        x, y, _, _ = self.nodeCanvas.coords(n.canvasID)
+        self.nodeCanvas.move(n.nodeTag, n.pos.x - x, n.pos.y - y)
+
+        for port in n.iPorts:
+            color = self._getTypeColor(port.typeStr)
+            self.nodeCanvas.itemconfigure(port.canvasID, fill=color)
+
+        for port in n.oPorts:
+            color = self._getTypeColor(port.typeStr)
+            self.nodeCanvas.itemconfigure(port.canvasID, fill=color)
+
+
+    def _makeNewNode(self, n: Node, pos: Optional[Vec] = None):
+        minNodes = max(n.numInputs(), n.numOutputs())
 
         height = IO_HEIGHT * minNodes
 
         # TODO
         width = 40
 
-        nodeTag = str(n.node)
+        nodeTag = str(n)
 
-        nodeID = self.nodeCanvas.create_rectangle(n.pos.x, n.pos.y, n.pos.x + width, n.pos.y + height, fill='grey60',
-                                                  tags=[NODE_TAG, nodeTag])
+        if pos is None:
+            pos = Vec()
+
+        canvasNodeID = self.nodeCanvas.create_rectangle(pos.x, pos.y, pos.x + width, pos.y + height, fill='grey60',
+                                                        tags=[NODE_TAG, nodeTag])
+
+        posNode = _PosNode(n, canvasNodeID, nodeTag, pos)
+
+        self._idToNode[n.nodeID] = posNode
+        self._canvToNodeRef[canvasNodeID] = posNode
+
         if self._lowestNode is None:
-            self._lowestNode = nodeID
+            self._lowestNode = canvasNodeID
 
         usableHeight = height - (2 * PORT_VERT_OFFSET)
 
-        # INPUTS
-        if n.node.numInputs() > 0:
-            iPortX = n.pos.x - PORT_HORZ_OFFSET
-            iPortY = n.pos.y + PORT_VERT_OFFSET
+        def drawPorts(iterator: Iterator[IOPort], num: int, x: int, y: int,
+                      textOffset: int, textAnchor: str, portDir: _PortIO) -> List[_PortRef]:
             try:
-                iPortDeltaY = usableHeight / (n.node.numInputs() - 1)
+                deltaY = usableHeight / (num - 1)
             except ZeroDivisionError:
-                iPortDeltaY = 0
-            iPortTextX = iPortX - PORT_SIZE
+                deltaY = 0
+            textX = x + textOffset
 
-            for idx, x in enumerate(n.node.inputs()):
-                # TODO color
-                color = DEF_PORT_COLOR
-                portID = self._drawPort(iPortX, iPortY, fill=color, nodeTag=nodeTag)
-                self.nodeCanvas.create_text(iPortTextX, iPortY, text=x.name, anchor='e', tags=[nodeTag])
-                iPortY += iPortDeltaY
+            out = []
 
-                self._portRefs[portID] = _PortRef(portID, n.node, idx, _PortIO.IN, color)
+            for idx, p in enumerate(iterator):
+                color = self._getTypeColor(p.typeStr)
+                portID = self._drawPort(x, y, fill=color, nodeTag=nodeTag)
+                # noinspection PyTypeChecker
+                self.nodeCanvas.create_text(textX, y, text=p.name, anchor=textAnchor, tags=[nodeTag])
+                y += deltaY
+
+                portRef = _PortRef(portID, posNode, idx, portDir, p.typeStr)
+                self._canvToPortRef[portID] = portRef
+                out.append(portRef)
+
+            return out
+
+        # INPUTS
+        if n.numInputs() > 0:
+            iPortX = pos.x - PORT_HORZ_OFFSET
+            iPortY = pos.y + PORT_VERT_OFFSET
+            posNode.iPorts = drawPorts(n.inputs(), n.numInputs(), iPortX, iPortY, -PORT_SIZE,
+                                 'e', _PortIO.IN)
 
         # OUTPUTS
-        if n.node.numOutputs() > 0:
-            oPortX = n.pos.x + width + PORT_HORZ_OFFSET
-            oPortY = n.pos.y + PORT_VERT_OFFSET
-            try:
-                oPortDeltaY = usableHeight / (n.node.numOutputs() - 1)
-            except ZeroDivisionError:
-                oPortDeltaY = 0
-            oPortTextX = oPortX + PORT_SIZE
+        if n.numOutputs() > 0:
+            oPortX = pos.x + width + PORT_HORZ_OFFSET
+            oPortY = pos.y + PORT_VERT_OFFSET
+            posNode.oPorts = drawPorts(n.outputs(), n.numOutputs(), oPortX, oPortY, PORT_SIZE,
+                                 'w', _PortIO.OUT)
 
-            for idx, x in enumerate(n.node.outputs()):
-                color = self.nodeMan.portColors[x.typeStr] if x.typeStr in self.nodeMan.portColors else DEF_PORT_COLOR
-                portID = self._drawPort(oPortX, oPortY, fill=color, nodeTag=nodeTag)
-                self.nodeCanvas.create_text(oPortTextX, oPortY, text=x.name, anchor='w', tags=[nodeTag])
-                oPortY += oPortDeltaY
+    def _makeNewLink(self, link: Link):
+        parent = self._idToNode[link.parent.nodeID]
+        child = self._idToNode[link.child.nodeID]
 
-                self._portRefs[portID] = _PortRef(portID, n.node, idx, _PortIO.OUT, color)
+        outPort = parent.oPorts[link.outIdx]
+        inPort = child.iPorts[link.inIdx]
+
+        end1 = self._portCoords(outPort.canvasID)
+        end2 = self._portCoords(inPort.canvasID)
+
+        # TODO link color
+        canvasID = self.nodeCanvas.create_line(end1.x, end1.y, end2.x, end2.y, fill="grey50", width=LINK_WIDTH)
+        self.nodeCanvas.lower(canvasID, self._lowestNode)
+
+        linkRef = _LinkRef(canvasID, parent, child, outPort, inPort, link)
+        self._idToLink[link.linkID] = linkRef
+        self._canvToLinkRef[canvasID] = linkRef
+
+        parent.links.append(linkRef)
+        child.links.append(linkRef)
+
+    def _updateLink(self, linkRef: _LinkRef):
+        end1 = self._portCoords(linkRef.oPort.canvasID)
+        end2 = self._portCoords(linkRef.iPort.canvasID)
+
+        self.nodeCanvas.coords(linkRef.canvasID, end1.x, end1.y, end2.x, end2.y)

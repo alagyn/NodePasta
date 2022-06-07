@@ -1,8 +1,8 @@
 
-from example_nodes import const_source, nullable_input, output_node, sum_node
+from example_nodes import const_source, power_node, output_node, sum_node
 from nodepasta.node_graph import NodeGraph
 
-from nodepasta.tk_node_graph import TKNodeGraph, NodeManager, Vec
+from nodepasta.tk_node_graph import TKNodeGraph, Vec
 
 import tkinter as tk
 
@@ -14,19 +14,21 @@ if __name__ == '__main__':
 
     ng.addNodes(src1, src2)
 
-    powerN = nullable_input.Power()
+    powerN = power_node.Power()
     sumN = sum_node.SumNode()
     outN = output_node.OutputNode()
 
     ng.addNodes(powerN, sumN, outN)
 
-    src1.addChild(powerN, 0, 0)
-    src2.addChild(powerN, 0, 1)
+    ng.makeLink(src1, 0, powerN, 0)
+    ng.makeLink(src2, 0, powerN, 1)
 
-    powerN.addChild(sumN, 0, 0)
-    src2.addChild(sumN, 0, 1)
+    ng.makeLink(powerN, 0, sumN, 0)
+    ng.makeLink(src2, 0, sumN, 1)
 
-    sumN.addChild(outN, 0, 0)
+    ng.makeLink(sumN, 0, outN, 0)
+
+    ng.execute()
 
     root = tk.Tk()
     root.columnconfigure(0, weight=1)
@@ -38,16 +40,18 @@ if __name__ == '__main__':
     f.columnconfigure(0, weight=1)
     f.rowconfigure(0, weight=1)
 
-    nodeMan = NodeManager()
+    ngFrame = TKNodeGraph(f, ng)
 
-    nodeMan.addNode(src1, Vec(30, 20))
-    nodeMan.addNode(sumN, Vec(200, 20))
-    nodeMan.addNode(powerN, Vec(100, 100))
-    nodeMan.addNode(outN, Vec(300, 100))
+    ngFrame.setPos(src1, Vec(30, 60))
+    ngFrame.setPos(src2, Vec(30, 90))
+    ngFrame.setPos(sumN, Vec(200, 60))
+    ngFrame.setPos(powerN, Vec(130, 20))
+    ngFrame.setPos(outN, Vec(300, 100))
 
-    nodeMan.setPortTypeColor("float", "lightgreen")
+    ngFrame.setPortTypeColor("float", "lightgreen")
 
-    nGraph = TKNodeGraph(f, nodeMan)
-    nGraph.grid(row=0, column=0, sticky='nesw')
+    ngFrame.reloadGraph()
+
+    ngFrame.grid(row=0, column=0, sticky='nesw')
 
     root.mainloop()
