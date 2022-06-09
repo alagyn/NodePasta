@@ -1,10 +1,11 @@
-from typing import List, Any
+from typing import List, Any, Dict
 
 from nodepasta.node import Node, InPort, OutPort
 
 class Power(Node):
     _INPUTS = [InPort("base", "float"), InPort("power", "float")]
     _OUTPUTS = [OutPort("value", "float")]
+    CLASSNAME = "Power"
 
     def _execute(self, inputs: List[Any]) -> List[Any]:
         if inputs[1] is None:
@@ -13,3 +14,6 @@ class Power(Node):
             powr = inputs[1]
 
         return [pow(inputs[0], powr)]
+
+    def getArgs(self) -> Dict[str, any]:
+        return {}

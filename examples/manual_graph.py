@@ -44,8 +44,8 @@ if __name__ == '__main__':
 
     ngFrame.setPos(src1, Vec(30, 60))
     ngFrame.setPos(src2, Vec(30, 90))
-    ngFrame.setPos(sumN, Vec(200, 60))
     ngFrame.setPos(powerN, Vec(130, 20))
+    ngFrame.setPos(sumN, Vec(200, 60))
     ngFrame.setPos(outN, Vec(300, 100))
 
     ngFrame.setPortTypeColor("float", "lightgreen")

@@ -2,6 +2,7 @@ from abc import ABC
 from typing import List, Dict, Any, Optional, Iterator, Tuple
 
 from .ng_errors import ExecutionError, NodeDefError
+from .utils import Vec
 
 
 class IOPort:
@@ -75,8 +76,9 @@ class _NodeLinkIter:
 class Node(ABC):
     _INPUTS: List[InPort] = []
     _OUTPUTS: List[OutPort] = []
+    CLASSNAME = "CLASS NOT DEFINED"
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         global _NODE_ID_GEN
 
         self.nodeID = _NODE_ID_GEN
@@ -89,6 +91,8 @@ class Node(ABC):
 
         self._inputs: List[InPort] = [x.copy() for x in self._INPUTS]
         self._outputs: List[OutPort] = [x.copy() for x in self._OUTPUTS]
+
+        self.pos = Vec()
 
     # TODO def draw?
 
@@ -219,6 +223,9 @@ class Node(ABC):
             raise ExecutionError(f"{self}: Invalid number of inputs, expected: {len(self._inputs)}, got: {len(inputs)}")
 
         return self._execute(inputs)
+
+    def getArgs(self) -> Dict[str, any]:
+        raise NotImplementedError
 
     def _execute(self, inputs: List[Any]) -> List[Any]:
         raise NotImplementedError

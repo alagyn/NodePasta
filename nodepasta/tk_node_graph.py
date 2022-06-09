@@ -1,13 +1,11 @@
 import tkinter as tk
-from tkinter import ttk
 from enum import IntEnum
 
 from typing import Optional, List, Dict, Iterator
 
-from .node import Node, IOPort, Link
+from .node import Node, IOPort, Link, _NodeLinkIter
 from .node_graph import NodeGraph
 from .utils import Vec
-from .ng_errors import NodeGraphError
 
 
 # region Helper Classes
@@ -17,11 +15,10 @@ class _PortIO(IntEnum):
     OUT = 1
 
 
-class _PosNode:
-    def __init__(self, node: Node, canvasID: int, nodeTag: str, pos: Optional[Vec] = None,
+class _NodeRef:
+    def __init__(self, node: Node, canvasID: int, nodeTag: str,
                  iPorts: List['_PortRef'] = None, oPorts: List['_PortRef'] = None, links: List['_LinkRef'] = None):
         self.node = node
-        self.pos = pos if pos is not None else Vec()
         self.iPorts = [] if iPorts is None else iPorts
         self.oPorts = [] if oPorts is None else oPorts
         self.links = [] if links is None else links
@@ -29,15 +26,24 @@ class _PosNode:
         self.canvasID = canvasID
         self.nodeTag = nodeTag
 
-    def __iter__(self) -> Iterator[Link]:
-        return self.node.links()
+    @property
+    def pos(self) -> Vec:
+        return self.node.pos
+
+    @pos.setter
+    def pos(self, v: Vec):
+        self.node.pos = v
+
+
+    def __iter__(self) -> _NodeLinkIter:
+        return self.node.__iter__()
 
     def __str__(self):
-        return f"PosNode({self.node}, pos: {self.pos})"
+        return f"PosNode({self.node}, pos: {self.node})"
 
 
 class _PortRef:
-    def __init__(self, canvasID, node: _PosNode, idx: int, io: _PortIO, typeStr: str):
+    def __init__(self, canvasID, node: _NodeRef, idx: int, io: _PortIO, typeStr: str):
         self.canvasID = canvasID
         self.posNode = node
         self.idx = idx
@@ -46,7 +52,7 @@ class _PortRef:
 
 
 class _LinkRef:
-    def __init__(self, canvasID: int, parent: _PosNode, child: _PosNode, outPort: _PortRef, inPort: _PortRef, link: Link):
+    def __init__(self, canvasID: int, parent: _NodeRef, child: _NodeRef, outPort: _PortRef, inPort: _PortRef, link: Link):
         self.canvasID = canvasID
         self.parent = parent
         self.child = child
@@ -108,9 +114,9 @@ class TKNodeGraph(tk.Frame):
         self._lowestNode = None
 
         # Node ID -> PosNode
-        self._idToNode: Dict[int, _PosNode] = {}
+        self._idToNode: Dict[int, _NodeRef] = {}
         # Node Canvas ID -> PosNode
-        self._canvToNodeRef: Dict[int, _PosNode] = {}
+        self._canvToNodeRef: Dict[int, _NodeRef] = {}
 
         # Port Canvas ID -> PortRef
         self._canvToPortRef: Dict[int, _PortRef] = {}
@@ -249,7 +255,7 @@ class TKNodeGraph(tk.Frame):
                     inIdx = portRef2.idx
                     outIdx = portRef1.idx
 
-                link, removed = parent.addChild(child, outIdx, inIdx)
+                link, removed = self.nodeGraph.makeLink(parent, outIdx, child, inIdx)
 
                 if removed is not None:
                     linkRef = self._idToLink[removed.linkID]
@@ -304,7 +310,7 @@ class TKNodeGraph(tk.Frame):
 
     # endregion
 
-    def _updateNode(self, n: _PosNode):
+    def _updateNode(self, n: _NodeRef):
         # noinspection PyTypeChecker
         x, y, _, _ = self.nodeCanvas.coords(n.canvasID)
         self.nodeCanvas.move(n.nodeTag, n.pos.x - x, n.pos.y - y)
@@ -329,12 +335,12 @@ class TKNodeGraph(tk.Frame):
         nodeTag = str(n)
 
         if pos is None:
-            pos = Vec()
+            pos = n.pos
 
         canvasNodeID = self.nodeCanvas.create_rectangle(pos.x, pos.y, pos.x + width, pos.y + height, fill='grey60',
                                                         tags=[NODE_TAG, nodeTag])
 
-        posNode = _PosNode(n, canvasNodeID, nodeTag, pos)
+        posNode = _NodeRef(n, canvasNodeID, nodeTag)
 
         self._idToNode[n.nodeID] = posNode
         self._canvToNodeRef[canvasNodeID] = posNode
