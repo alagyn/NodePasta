@@ -1,2 +1,2 @@
 # NodePasta
-A freeform node based visual scripting system for python and TK GUIs
+Want to implement a visual scripting system into your program but don't want to write it yourself? NodePasta has got you covered.
