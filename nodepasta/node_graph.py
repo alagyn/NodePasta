@@ -3,8 +3,8 @@ from typing import Dict, List, Set, Iterator, Tuple, Optional, Type
 
 import json
 
-from .node import Node, Link
-from .ng_errors import ExecutionError, NodeGraphError
+from .node import Node, Link, NODE_ERR_CN
+from .ng_errors import ExecutionError, NodeGraphError, NodeDefError
 from .utils import Vec
 
 _NODES = 'nodes'
@@ -101,16 +101,18 @@ class NodeGraph:
             raise
 
     def registerNodeClass(self, nodeType: Type[Node]):
+        if nodeType.NODETYPE == NODE_ERR_CN:
+            raise NodeDefError(f"Node::init() Node class {nodeType.__name__}, NODETYPE class variable not set")
         try:
-            x = self._nodeTypes[nodeType.CLASSNAME]
+            x = self._nodeTypes[nodeType.NODETYPE]
             if x != nodeType:
-                raise NodeGraphError(f'NodeGraph::registerNodeClass() Node Class "{nodeType.CLASSNAME}" '
+                raise NodeGraphError(f'NodeGraph::registerNodeClass() Node Type "{nodeType.NODETYPE}" '
                                      f'already defined as {x.__name__}, cannot redefine as {nodeType.__name__}')
             return
         except KeyError:
             pass
 
-        self._nodeTypes[nodeType.CLASSNAME] = nodeType
+        self._nodeTypes[nodeType.NODETYPE] = nodeType
 
     def writeToFile(self, filename: str):
         # NodeID -> list index
@@ -128,7 +130,7 @@ class NodeGraph:
 
         for node in nodeList:
             nodeJList.append({
-                _CLASS: node.CLASSNAME,
+                _CLASS: node.NODETYPE,
                 _ARGS: node.getArgs(),
                 _POS: [node.pos.x, node.pos.y]
             })

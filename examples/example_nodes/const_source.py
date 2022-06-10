@@ -4,7 +4,7 @@ from nodepasta.node import Node, OutPort
 
 class ConstSource(Node):
     _OUTPUTS = [OutPort("value", "float")]
-    CLASSNAME = "Source"
+    NODETYPE = "Source"
 
     def __init__(self, value: float):
         super().__init__()

@@ -4,7 +4,7 @@ import tkinter as tk
 from example_nodes import const_source, power_node, output_node, sum_node
 from nodepasta.ng_errors import NodeGraphError
 from nodepasta.node_graph import NodeGraph
-from nodepasta.tk_node_graph import TKNodeGraph
+from nodepasta.tk.tk_node_graph import TKNodeGraph
 
 if __name__ == '__main__':
     filename = ''

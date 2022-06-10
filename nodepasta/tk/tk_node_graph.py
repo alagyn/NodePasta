@@ -3,9 +3,9 @@ from enum import IntEnum
 
 from typing import Optional, List, Dict, Iterator
 
-from .node import Node, IOPort, Link, _NodeLinkIter
-from .node_graph import NodeGraph
-from .utils import Vec
+from nodepasta.node import Node, IOPort, Link, _NodeLinkIter
+from nodepasta.node_graph import NodeGraph
+from nodepasta.utils import Vec
 
 
 # region Helper Classes
@@ -63,6 +63,9 @@ class _LinkRef:
 
 # endregion
 
+class _TKNode(tk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
 
 # region Consts
 
@@ -84,7 +87,7 @@ DEF_PORT_COLOR = "grey50"
 # endregion
 
 class TKNodeGraph(tk.Frame):
-    def __init__(self, parent, nodeGraph: NodeGraph):
+    def __init__(self, parent, nodeGraph: NodeGraph, registerDefArgHandlers: bool = True):
         super().__init__(parent)
 
         self.nodeGraph = nodeGraph

@@ -1,8 +1,8 @@
-
 from example_nodes import const_source, power_node, output_node, sum_node
 from nodepasta.node_graph import NodeGraph
 
-from nodepasta.tk_node_graph import TKNodeGraph, Vec
+from nodepasta.tk.tk_node_graph import TKNodeGraph
+from nodepasta.utils import Vec
 
 import tkinter as tk
 

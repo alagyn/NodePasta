@@ -5,7 +5,7 @@ from nodepasta.node import Node, InPort, OutPort
 class Power(Node):
     _INPUTS = [InPort("base", "float"), InPort("power", "float")]
     _OUTPUTS = [OutPort("value", "float")]
-    CLASSNAME = "Power"
+    NODETYPE = "Power"
 
     def _execute(self, inputs: List[Any]) -> List[Any]:
         if inputs[1] is None:

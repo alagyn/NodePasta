@@ -1,8 +1,10 @@
+import abc
 from abc import ABC
 from typing import List, Dict, Any, Optional, Iterator, Tuple
 
-from .ng_errors import ExecutionError, NodeDefError
-from .utils import Vec
+from nodepasta.ng_errors import ExecutionError, NodeDefError
+from nodepasta.utils import Vec
+from nodepasta.argtypes import NodeArg
 
 
 class IOPort:
@@ -73,10 +75,14 @@ class _NodeLinkIter:
             self._curDIter = next(self._portIter).values().__iter__()
 
 
+NODE_ERR_CN = "__ERROR__"
+
+
 class Node(ABC):
     _INPUTS: List[InPort] = []
     _OUTPUTS: List[OutPort] = []
-    CLASSNAME = "CLASS NOT DEFINED"
+    ARGS: List[NodeArg] = []
+    NODETYPE = NODE_ERR_CN
 
     def __init__(self, **kwargs):
         global _NODE_ID_GEN
@@ -94,16 +100,11 @@ class Node(ABC):
 
         self.pos = Vec()
 
-    # TODO def draw?
-
     def inputs(self) -> Iterator[InPort]:
         return self._inputs.__iter__()
 
     def outputs(self) -> Iterator[OutPort]:
         return self._outputs.__iter__()
-
-    def __iter__(self) -> _NodeLinkIter:
-        return _NodeLinkIter(self._children.__iter__())
 
     def numInputs(self) -> int:
         """
@@ -118,6 +119,9 @@ class Node(ABC):
         :return: the number of output ports
         """
         return len(self._outputs)
+
+    def __iter__(self) -> _NodeLinkIter:
+        return _NodeLinkIter(self._children.__iter__())
 
     def _addChild(self, n: 'Node', outIdx: int, inIdx: int) -> Tuple[Link, Optional[Link]]:
         if not 0 <= outIdx < len(self._outputs):
@@ -138,6 +142,7 @@ class Node(ABC):
 
         return link, old
 
+    # region IO Editing
     def addInput(self, inPort: InPort, idx: int = -1):
         if idx < 0:
             start = len(self._parents) - idx + 1
@@ -213,6 +218,8 @@ class Node(ABC):
             for link in self._children[i].values():
                 link.outIdx = i
 
+    # endregion
+
     def execute(self, inputs: List[Any]) -> List[Any]:
 
         # TODO remove
@@ -224,9 +231,11 @@ class Node(ABC):
 
         return self._execute(inputs)
 
+    @abc.abstractmethod
     def getArgs(self) -> Dict[str, any]:
         raise NotImplementedError
 
+    @abc.abstractmethod
     def _execute(self, inputs: List[Any]) -> List[Any]:
         raise NotImplementedError
 
