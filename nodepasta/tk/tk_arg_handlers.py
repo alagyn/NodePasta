@@ -1,6 +1,8 @@
 import tkinter as tk
+from tkinter import ttk
 import abc
-from nodepasta.argtypes import NodeArg, NodeArgValue
+from nodepasta.argtypes import NodeArg, NodeArgValue, EnumNodeArg
+from nodepasta.argtypes import STRING, INT, FLOAT, ENUM, BOOL
 
 
 class TKArgHandler(abc.ABC):
@@ -63,3 +65,22 @@ class TKBoolArgHandler(TKArgHandler):
         var = tk.BooleanVar()
         tk.Checkbutton(frame, text=arg.display, variable=var)
         return TKVarArg(var)
+
+
+# Enum
+class TKEnumArgHandler(TKArgHandler):
+    @classmethod
+    def draw(cls, frame: tk.Frame, arg: EnumNodeArg) -> NodeArgValue:
+        tk.Label(frame, text=f"{arg.display}:").grid(row=0, column=0, sticky='nesw')
+        var = tk.StringVar(value=arg.default if arg.default is not None else "")
+        ttk.Combobox(frame, textvariable=var, values=arg.values, state='readonly')
+        return TKVarArg(var)
+
+
+DEF_HANDLERS = {
+    STRING: TKStringArgHandler,
+    INT: TKIntArgHandler,
+    FLOAT: TKFloatArgHandler,
+    ENUM: TKEnumArgHandler,
+    BOOL: TKBoolArgHandler
+}

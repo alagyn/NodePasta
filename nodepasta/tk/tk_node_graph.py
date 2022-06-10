@@ -6,7 +6,8 @@ from typing import Optional, List, Dict, Iterator
 from nodepasta.node import Node, IOPort, Link, _NodeLinkIter
 from nodepasta.node_graph import NodeGraph
 from nodepasta.utils import Vec
-
+from nodepasta.argtypes import NodeArgValue
+from nodepasta.tk.tk_arg_handlers import TKArgHandler, DEF_HANDLERS
 
 # region Helper Classes
 
@@ -83,7 +84,6 @@ PORT_TAG = 'port'
 NODE_TAG = "node"
 DEF_PORT_COLOR = "grey50"
 
-
 # endregion
 
 class TKNodeGraph(tk.Frame):
@@ -128,6 +128,11 @@ class TKNodeGraph(tk.Frame):
         self._idToLink: Dict[int, _LinkRef] = {}
         # Link Canvas ID -> LinkRef
         self._canvToLinkRef: Dict[int, _LinkRef] = {}
+
+        if registerDefArgHandlers:
+            self._argTypeHandlers: Dict[str, TKArgHandler] = DEF_HANDLERS
+        else:
+            self._argTypeHandlers: Dict[str, TKArgHandler] = {}
 
         # Do last?
         if len(self.nodeGraph) > 0:
