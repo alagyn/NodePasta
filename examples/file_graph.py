@@ -1,8 +1,8 @@
 import sys
 import tkinter as tk
 
-from example_nodes import const_source, power_node, output_node, sum_node
-from nodepasta.ng_errors import NodeGraphError
+from example_nodes import const_source, power_node, output_node, sum_node, offset_node
+from nodepasta.errors import NodeGraphError
 from nodepasta.node_graph import NodeGraph
 from nodepasta.tk.tk_node_graph import TKNodeGraph
 
@@ -20,7 +20,8 @@ if __name__ == '__main__':
         const_source.ConstSource,
         power_node.Power,
         sum_node.SumNode,
-        output_node.OutputNode
+        output_node.OutputNode,
+        offset_node.OffsetNode
     ]
 
     for t in nodeTypes:

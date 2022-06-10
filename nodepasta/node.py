@@ -2,7 +2,7 @@ import abc
 from abc import ABC
 from typing import List, Dict, Any, Optional, Iterator, Tuple
 
-from nodepasta.ng_errors import ExecutionError, NodeDefError
+from nodepasta.errors import ExecutionError, NodeDefError, NodeTypeError
 from nodepasta.utils import Vec
 from nodepasta.argtypes import NodeArg
 
@@ -131,7 +131,7 @@ class Node(ABC):
 
         i = n._inputs[inIdx]
         if not i.allowAny and self._outputs[outIdx].typeStr != i.typeStr:
-            raise ExecutionError(
+            raise NodeTypeError(
                 f"Node::addChild() {self} -> {n}: Invalid type, expected {i.typeStr},"
                 f" got {self._outputs[outIdx].typeStr}")
 
@@ -141,84 +141,6 @@ class Node(ABC):
         n._parents[inIdx] = link
 
         return link, old
-
-    # region IO Editing
-    def addInput(self, inPort: InPort, idx: int = -1):
-        if idx < 0:
-            start = len(self._parents) - idx + 1
-        else:
-            start = idx + 1
-
-        try:
-            self._parents.insert(idx, None)
-            self._inputs.insert(idx, inPort)
-        except IndexError as err:
-            raise NodeDefError(f"Node::addInput() {self} cannot add input, invalid idx {err},"
-                               f" input len: {len(self._inputs)}")
-
-        for x in range(start, len(self._parents)):
-            link = self._parents[x]
-            if link is not None:
-                link.inIdx = x
-
-    def addOutput(self, outPort: OutPort, idx: int = -1):
-        if idx < 0:
-            start = len(self._outputs) - idx + 1
-        else:
-            start = idx + 1
-
-        try:
-            self._outputs.insert(idx, outPort)
-        except IndexError as err:
-            raise NodeDefError(f"Node::addOutput() {self} cannot add output, invalid idx {err},"
-                               f" output len: {len(self._outputs)}")
-
-        for link in self:
-            if link.outIdx >= start:
-                link.outIdx += 1
-
-    def remInput(self, idx: int):
-        parentLink = self._parents[idx]
-        if parentLink is not None:
-            # Remove this link from parent
-            parentLink.parent._children[parentLink.outIdx].pop(parentLink.linkID)
-
-        if idx < 0:
-            start = len(self._inputs) - idx
-        else:
-            start = idx
-
-        try:
-            self._parents.pop(idx)
-            self._inputs.pop(idx)
-        except IndexError as err:
-            raise NodeDefError(f'Node::remInput() {self} cannot remove input, invalid idx {err},'
-                               f' input len: {len(self._inputs)}')
-
-        for x in range(start, len(self._parents)):
-            link = self._parents[x]
-            if link is not None:
-                link.inIdx = x
-
-    def remOutput(self, idx: int):
-        # Remove all children using this output
-        for link in self._children[idx].copy().values():
-            # Remove link from child
-            link.child._parents[link.inIdx] = None
-
-        if idx < 0:
-            start = len(self._outputs)
-        else:
-            start = idx
-
-        self._children.pop(idx)
-        self._outputs.pop(idx)
-
-        for i in range(start, len(self._children)):
-            for link in self._children[i].values():
-                link.outIdx = i
-
-    # endregion
 
     def execute(self, inputs: List[Any]) -> List[Any]:
 

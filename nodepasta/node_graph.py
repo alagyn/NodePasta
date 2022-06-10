@@ -4,7 +4,7 @@ from typing import Dict, List, Set, Iterator, Tuple, Optional, Type
 import json
 
 from .node import Node, Link, NODE_ERR_CN
-from .ng_errors import ExecutionError, NodeGraphError, NodeDefError
+from .errors import ExecutionError, NodeGraphError, NodeDefError
 from .utils import Vec
 
 _NODES = 'nodes'

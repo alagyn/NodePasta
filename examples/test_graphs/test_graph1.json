@@ -12,22 +12,27 @@
             "args": {
                 "value": 2
             },
-            "pos": [30, 90]
+            "pos": [30, 120]
         },
         {
             "class": "Power",
             "args": {},
-            "pos": [130, 20]
+            "pos": [140, 20]
         },
         {
             "class": "Sum",
             "args": {},
-            "pos": [200, 60]
+            "pos": [220, 60]
         },
         {
             "class": "Output",
             "args": {},
-            "pos": [300, 100]
+            "pos": [320, 100]
+        },
+        {
+            "class": "Offset",
+            "args": {"offset": 2},
+            "pos": [250, 150]
         }
     ],
     
