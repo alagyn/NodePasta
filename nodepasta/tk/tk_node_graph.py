@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Iterator
 from nodepasta.node import Node, IOPort, Link, _NodeLinkIter
 from nodepasta.node_graph import NodeGraph
 from nodepasta.utils import Vec
-from nodepasta.errors import NodeTypeError
+from nodepasta.errors import NodeGraphError
 from nodepasta.argtypes import NodeArgValue
 from nodepasta.tk.tk_arg_handlers import TKArgHandler, DEF_HANDLERS, TKNotFoundHandler
 
@@ -19,13 +19,13 @@ class _PortIO(IntEnum):
 
 
 class _NodeRef:
-    def __init__(self, node: Node, canvasID: int, nodeTag: str,
-                 iPorts: List['_PortRef'] = None, oPorts: List['_PortRef'] = None, links: List['_LinkRef'] = None):
+    def __init__(self, node: Node, canvasID: int, nodeTag: str):
         self.node = node
-        self.iPorts = [] if iPorts is None else iPorts
-        self.oPorts = [] if oPorts is None else oPorts
-        self.links = [] if links is None else links
-        self.args: List[NodeArgValue] = []
+        self.iPorts = []
+        self.oPorts = []
+        self.iLinks: List[Optional[_LinkRef]] = [None] * node.numInputs()
+        self.oLinks: List[List[_LinkRef]] = [[]] * node.numOutputs()
+        self.args: Dict[str, NodeArgValue] = {}
         self.canvasID = canvasID
         self.nodeTag = nodeTag
 
@@ -47,11 +47,14 @@ class _NodeRef:
 class _PortRef:
     def __init__(self, canvasID: int, textCanvasID: int, node: _NodeRef, idx: int, io: _PortIO, typeStr: str):
         self.portCanvasID = canvasID
-        self.posNode = node
+        self.nodeRef = node
         self.idx = idx
         self.io = io
         self.typeStr = typeStr
         self.textCanvasID = textCanvasID
+
+    def __str__(self):
+        return f'{self.nodeRef.node}:{self.io.name}:{self.idx}'
 
 
 class _LinkRef:
@@ -95,6 +98,7 @@ LINK_COLOR = "grey70"
 
 # endregion
 
+
 class TKNodeGraph(tk.Frame):
     def __init__(self, parent, nodeGraph: NodeGraph, registerDefArgHandlers: bool = True):
         super().__init__(parent)
@@ -104,14 +108,18 @@ class TKNodeGraph(tk.Frame):
         self.portColors: Dict[str, str] = {}
 
         self.rowconfigure(0, weight=3)
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(1, weight=0)
         self.columnconfigure(0, weight=1)
 
         self._nodeCanvas = tk.Canvas(self)
         self._nodeCanvas.grid(row=0, column=0, stick='nesw')
 
-        infoPanel = tk.Frame(self)
+        infoPanel = tk.LabelFrame(self, text="Info")
         infoPanel.grid(row=1, column=0, stick='nesw')
+
+        self._infoVar = tk.StringVar()
+        self._infoLabel = tk.Label(infoPanel, textvariable=self._infoVar)
+        self._infoLabel.grid(row=0, column=0, sticky='nesw')
 
         self._bindPortEvents()
         self._bindNodeEvents()
@@ -161,9 +169,25 @@ class TKNodeGraph(tk.Frame):
 
     # endregion
 
-    def unloadArgs(self):
-        # TODO
-        pass
+    def setInfoMessage(self, msg: str):
+        self._infoLabel.configure(fg="black")
+        self._infoVar.set(msg)
+
+    def setErrorMessage(self, msg: str):
+        self._infoLabel.configure(fg="red")
+        self._infoVar.set(msg)
+
+    def unloadArgs(self) -> Dict[int, Dict[str, any]]:
+        # Node ID -> Dict[argName, value]
+        out = {}
+
+        for node in self._idToNode.values():
+            args = {}
+            for name, argVal in node.args.items():
+                args[name] = argVal.get()
+            out[node.node.nodeID] = args
+
+        return out
 
     def reloadGraph(self):
         """
@@ -172,8 +196,10 @@ class TKNodeGraph(tk.Frame):
         """
         for node in self.nodeGraph:
             try:
-                posNode = self._idToNode[node.nodeID]
-                self._updateNode(posNode)
+                nodeRef = self._idToNode[node.nodeID]
+                # Make sure that the ref gets updated if reloaded
+                nodeRef.node = node
+                self._updateNode(nodeRef)
             except KeyError:
                 self._makeNewNode(node)
 
@@ -184,6 +210,15 @@ class TKNodeGraph(tk.Frame):
                     self._updateLink(linkRef)
                 except KeyError:
                     self._makeNewLink(link)
+
+    def reset(self):
+        self._idToNode = {}
+        self._idToLink = {}
+        self._canvToNodeRef = {}
+        self._canvToLinkRef = {}
+        self._canvToPortRef = {}
+        self._lowestNode = None
+        self._nodeCanvas.delete('all')
 
     def _current(self) -> int:
         return self._nodeCanvas.find_withtag(tk.CURRENT)[0]
@@ -226,20 +261,28 @@ class TKNodeGraph(tk.Frame):
 
     # region Drag Events
     def _startPortDrag(self, e):
-        # TODO differentiate between draggin in/out port
-        #   dragging from out ports allows multiple links
-        #   dragging from in ports grabs the end a link, if it exists,
-        #   since there can only be one link into in an input
         if not self._draggingPort:
             self._draggingPort = True
             portID = self._current()
-            self._curPortID = portID
 
-            self._dragStart = self._portCoords(portID)
+            portRef = self._canvToPortRef[portID]
 
-            # TODO color
+            self._dragStart = None
+
+            if portRef.io == _PortIO.IN:
+                link = portRef.nodeRef.iLinks[portRef.idx]
+                if link is not None:
+                    self._dragStart = self._portCoords(link.oPort.portCanvasID)
+                    self._removeLink(link)
+                    self._curPortID = link.oPort.portCanvasID
+
+            if self._dragStart is None:
+                self._dragStart = self._portCoords(portID)
+                self._curPortID = portID
+
             self._curDragCID = self._nodeCanvas.create_line(self._dragStart.x, self._dragStart.y, e.x, e.y,
                                                             fill=LINK_COLOR, width=LINK_WIDTH)
+
             self._nodeCanvas.lower(self._curDragCID, self._lowestNode)
         else:
             self._nodeCanvas.coords(self._curDragCID, self._dragStart.x, self._dragStart.y, e.x, e.y)
@@ -254,8 +297,12 @@ class TKNodeGraph(tk.Frame):
         self._curNode.pos = Vec(e.x, e.y) + self._dragStart
         self._updateNode(self._curNode)
 
-        for link in self._curNode.links:
-            self._updateLink(link)
+        for link in self._curNode.iLinks:
+            if link is not None:
+                self._updateLink(link)
+        for port in self._curNode.oLinks:
+            for link in port:
+                self._updateLink(link)
 
     def _releaseLinkDrag(self):
         self._draggingPort = False
@@ -265,20 +312,23 @@ class TKNodeGraph(tk.Frame):
             portRef1 = self._canvToPortRef[c]
             portRef2 = self._canvToPortRef[self._curPortID]
 
+            # TODO remove?
+            self.setInfoMessage(f'{portRef1} -> {portRef2}')
+
             if c != self._curPortID and portRef1.io != portRef2.io:
                 fail = False
 
                 self._nodeCanvas.delete(self._curDragCID)
 
                 if portRef1.io == _PortIO.IN:
-                    child = portRef1.posNode.node
-                    parent = portRef2.posNode.node
+                    child = portRef1.nodeRef.node
+                    parent = portRef2.nodeRef.node
 
                     inIdx = portRef1.idx
                     outIdx = portRef2.idx
                 else:
-                    child = portRef2.posNode.node
-                    parent = portRef1.posNode.node
+                    child = portRef2.nodeRef.node
+                    parent = portRef1.nodeRef.node
 
                     inIdx = portRef2.idx
                     outIdx = portRef1.idx
@@ -291,9 +341,8 @@ class TKNodeGraph(tk.Frame):
                         self._nodeCanvas.delete(linkRef.canvasID)
 
                     self._makeNewLink(link)
-                except NodeTypeError as err:
-                    # TODO print error
-                    pass
+                except NodeGraphError as err:
+                    self.setErrorMessage(str(err))
 
         except KeyError:
             pass
@@ -367,21 +416,21 @@ class TKNodeGraph(tk.Frame):
             n.pos = pos
 
         nodeFrame = tk.LabelFrame(self._nodeCanvas)
-        tk.Label(nodeFrame, text=n.NODETYPE).grid(row=0, column=0, sticky='nesw')
+        tk.Label(nodeFrame, text=f'{n.NODETYPE}:{n.nodeID}').grid(row=0, column=0, sticky='nesw')
         nodeCanvasID = self._nodeCanvas.create_window(pos.x, pos.y, anchor='nw', window=nodeFrame,
                                                       tags=[NODE_HVR_TAG, nodeTag])
 
         nodeRef = _NodeRef(n, nodeCanvasID, nodeTag)
         self._idToNode[n.nodeID] = nodeRef
 
-        for idx, arg in enumerate(n.ARGS):
+        for idx, arg in enumerate(n.args.values()):
             argFrame = tk.Frame(nodeFrame)
             try:
                 argValue = self._argTypeHandlers[arg.argType].draw(argFrame, arg)
             except KeyError:
                 argValue = TKNotFoundHandler.draw(argFrame, arg)
             argFrame.grid(row=idx + 1, column=0, sticky='nesw')
-            nodeRef.args.append(argValue)
+            nodeRef.args[arg.name] = argValue
 
         self._makePortBlock(nodeRef)
 
@@ -481,11 +530,19 @@ class TKNodeGraph(tk.Frame):
         self._idToLink[link.linkID] = linkRef
         self._canvToLinkRef[canvasID] = linkRef
 
-        parent.links.append(linkRef)
-        child.links.append(linkRef)
+        parent.oLinks[link.outIdx].append(linkRef)
+        child.iLinks[link.inIdx] = linkRef
 
     def _updateLink(self, linkRef: _LinkRef):
         end1 = self._portCoords(linkRef.oPort.portCanvasID)
         end2 = self._portCoords(linkRef.iPort.portCanvasID)
 
         self._nodeCanvas.coords(linkRef.canvasID, end1.x, end1.y, end2.x, end2.y)
+
+    def _removeLink(self, linkRef: _LinkRef):
+        self.nodeGraph.unlink(linkRef.link)
+        linkRef.parent.oLinks[linkRef.oPort.idx].remove(linkRef)
+        linkRef.child.iLinks[linkRef.iPort.idx] = None
+
+        self._nodeCanvas.delete(linkRef.canvasID)
+        del self._canvToLinkRef[linkRef.canvasID]

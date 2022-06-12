@@ -14,6 +14,3 @@ class Power(Node):
             powr = inputs[1]
 
         return [pow(inputs[0], powr)]
-
-    def getArgs(self) -> Dict[str, any]:
-        return {}

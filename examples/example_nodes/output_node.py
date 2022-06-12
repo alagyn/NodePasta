@@ -8,6 +8,3 @@ class OutputNode(Node):
     def _execute(self, inputs: List[Any]) -> List[Any]:
         print(inputs[0])
         return []
-
-    def getArgs(self) -> Dict[str, any]:
-        return {}

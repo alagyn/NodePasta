@@ -27,13 +27,6 @@ if __name__ == '__main__':
     for t in nodeTypes:
         ng.registerNodeClass(t)
 
-    try:
-        ng.loadFromFile(filename)
-    except NodeGraphError as err:
-        print("ERROR:", str(err))
-        exit()
-
-    ng.execute()
 
     root = tk.Tk()
     root.columnconfigure(0, weight=1)
@@ -47,8 +40,31 @@ if __name__ == '__main__':
 
     ngFrame = TKNodeGraph(f, ng)
     ngFrame.setPortTypeColor("float", "lightgreen")
-    ngFrame.reloadGraph()
+    ngFrame.setPortTypeColor('int', "brown")
+
+    def reload():
+        try:
+            ng.loadFromFile(filename)
+            ngFrame.reset()
+            ngFrame.reloadGraph()
+        except NodeGraphError as err:
+            print("ERROR:", str(err))
+            exit()
+
+    reload()
 
     ngFrame.grid(row=0, column=0, sticky='nesw')
+
+    def execute():
+        try:
+            ng.execute()
+        except NodeGraphError as e:
+            ngFrame.setErrorMessage(f'{e.loc}: {e.msg}')
+
+    btnFrame = tk.LabelFrame(root, text='Buttons')
+    btnFrame.grid(row=1, column=0, sticky='sw')
+
+    tk.Button(btnFrame, text="Execute", command=execute).grid(row=0, column=0, sticky='w')
+    tk.Button(btnFrame, text="Reload", command=reload).grid(row=0, column=1, sticky='w')
 
     root.mainloop()

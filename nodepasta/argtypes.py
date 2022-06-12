@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List
 import abc
 
 STRING = '__str'
@@ -8,11 +8,21 @@ ENUM = "__enum"
 BOOL = "__bool"
 
 class NodeArg:
-    def __init__(self, name: str, argType: str, display: str=None, default: any = None):
+    def __init__(self, name: str, argType: str, display: str=None, value: any = None):
         self.name = name
         self.argType = argType
-        self.default = default
+        self.value = value
         self.display = self.name if display is None else display
+
+    def copy(self) -> 'NodeArg':
+        return NodeArg(self.name, self.argType, self.display, self.value)
+
+    def getJSON(self) -> any:
+        return self.value
+
+    def loadJSON(self, value: any):
+        self.value = value
+
 
 class EnumNodeArg(NodeArg):
     def __init__(self, name: str, default: str, values: List[str]):

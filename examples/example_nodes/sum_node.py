@@ -7,8 +7,8 @@ class SumNode(Node):
     _OUTPUTS = [OutPort("value", "float")]
     NODETYPE = "Sum"
 
+    def __init__(self):
+        super(SumNode, self).__init__(noneCapable=False)
+
     def _execute(self, inputs: List[Any]) -> List[Any]:
         return [inputs[0] + inputs[1]]
-
-    def getArgs(self) -> Dict[str, any]:
-        return {}
