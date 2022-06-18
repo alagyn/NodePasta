@@ -14,7 +14,6 @@ _POS = 'pos'
 _CLASS = 'class'
 _ARGS = 'args'
 
-
 class NodeGraph:
     def __init__(self):
         # NodeID -> Node
@@ -32,6 +31,9 @@ class NodeGraph:
 
     def __iter__(self) -> Iterator[Node]:
         return self._nodeLookup.values().__iter__()
+
+    def nodeTypes(self) -> Iterator[Type[Node]]:
+        return sorted(self._nodeTypes.values(), key=lambda e: e.__name__).__iter__()
 
     def _loadFromFile(self, filename: str):
         try:
@@ -130,7 +132,7 @@ class NodeGraph:
 
         self._nodeTypes[nodeType.NODETYPE] = nodeType
 
-    def writeToFile(self, filename: str):
+    def saveToFile(self, filename: str):
         # NodeID -> list index
         relativeLookup = {}
 
@@ -145,6 +147,7 @@ class NodeGraph:
         linkJList = []
 
         for node in nodeList:
+
             nodeJList.append({
                 _CLASS: node.NODETYPE,
                 _ARGS: node.unloadArgs(),
@@ -164,7 +167,7 @@ class NodeGraph:
         }
 
         with open(filename, mode='w') as f:
-            json.dump(out, f)
+            json.dump(out, f, indent=2)
 
     def addNode(self, node: Node):
         if node.nodeID == -1:
@@ -237,6 +240,18 @@ class NodeGraph:
         parent._children[link.outIdx].pop(link.linkID)
         child._parents[link.inIdx] = None
         self._traversal = None
+
+    # noinspection PyProtectedMember
+    def removeNode(self, node: Node):
+        for link in node:
+            self.unlink(link)
+
+        for link in node._parents:
+            if link is not None:
+                self.unlink(link)
+
+        self._nodeLookup.pop(node.nodeID)
+
 
     def _recurGenTraversal(self, out: deque[Node], curNode: Node, ahead: Set[int], behind: Set[int]):
         ahead.add(curNode.nodeID)

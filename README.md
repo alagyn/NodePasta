@@ -7,17 +7,20 @@ develop their own graphs. NodePasta comes pre-packaged with a editor UI written 
 
 ## TODO
 - TK
-    - Add/Delete nodes
     - Grab multiple nodes to move
     - Port Default/Const Values
-    - Forked links
-    - Live graph execution
+      - Replaces Node args?
     
 - Nodes
     - Subgraph nodes
-    - Port Default/Const Values
     
 - Documentation
     - Node Developer Docs
     - UI Developer Docs
     - TK UI Tutorials
+
+## Stretch Goals
+- TK
+  - Forked Links
+  - Live Graph Execution
+  - Allow Key rebinds

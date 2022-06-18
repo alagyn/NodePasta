@@ -1,7 +1,7 @@
 import tkinter as tk
 from enum import IntEnum
 
-from typing import Optional, List, Dict, Iterator
+from typing import Optional, List, Dict, Iterator, Type
 
 from nodepasta.node import Node, IOPort, Link, _NodeLinkIter
 from nodepasta.node_graph import NodeGraph
@@ -95,6 +95,8 @@ NODE_HVR_TAG = "node"
 DEF_PORT_COLOR = "grey50"
 LINK_COLOR = "grey70"
 
+DIALOG_TAG = 'dialog'
+DIALOG_HEIGHT = 150
 
 # endregion
 
@@ -109,13 +111,23 @@ class TKNodeGraph(tk.Frame):
 
         self.rowconfigure(0, weight=3)
         self.rowconfigure(1, weight=0)
+        self.rowconfigure(2, weight=0)
         self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=0)
 
         self._nodeCanvas = tk.Canvas(self)
         self._nodeCanvas.grid(row=0, column=0, stick='nesw')
 
+        v_scroll = tk.Scrollbar(self, orient=tk.VERTICAL, command=self._nodeCanvas.yview)
+        self._nodeCanvas.configure(yscrollcommand=v_scroll.set)
+        v_scroll.grid(row=0, column=1, sticky='nse')
+
+        h_scroll = tk.Scrollbar(self, orient=tk.HORIZONTAL, command=self._nodeCanvas.xview)
+        self._nodeCanvas.configure(xscrollcommand=h_scroll.set)
+        h_scroll.grid(row=1, column=0, sticky='ews')
+
         infoPanel = tk.LabelFrame(self, text="Info")
-        infoPanel.grid(row=1, column=0, stick='nesw')
+        infoPanel.grid(row=2, column=0, stick='nesw')
 
         self._infoVar = tk.StringVar()
         self._infoLabel = tk.Label(infoPanel, textvariable=self._infoVar)
@@ -123,6 +135,7 @@ class TKNodeGraph(tk.Frame):
 
         self._bindPortEvents()
         self._bindNodeEvents()
+        self._bindKeyEvents()
 
         self._draggingPort = False
         self._draggingNode = False
@@ -160,12 +173,20 @@ class TKNodeGraph(tk.Frame):
         self._nodeCanvas.tag_bind(NODE_HVR_TAG, "<Enter>", self._hoverNode)
         self._nodeCanvas.tag_bind(NODE_HVR_TAG, "<Leave>", self._unhoverNode)
         self._nodeCanvas.tag_bind(NODE_HVR_TAG, "<B1-Motion>", self._startNodeDrag)
+        self._nodeCanvas.tag_bind(NODE_HVR_TAG, "<Control-ButtonPress-3>", self._deleteNode)
 
     def _bindPortEvents(self):
         self._nodeCanvas.tag_bind(PORT_TAG, "<Enter>", self._hoverPortEvent)
         self._nodeCanvas.tag_bind(PORT_TAG, "<Leave>", self._unhoverPortEvent)
         self._nodeCanvas.tag_bind(PORT_TAG, "<B1-Motion>", self._startPortDrag)
         self._nodeCanvas.bind("<ButtonRelease-1>", self._releasedDrag)
+
+    def _bindKeyEvents(self):
+        self._nodeCanvas.bind('<Control-ButtonPress-1>', self._addNewNodeDialog)
+        # TODO self.bind_all('<Control-KeyPress-r>', self._resetPan)
+        self._nodeCanvas.bind('<ButtonPress-3>', self._startPan)
+        self._nodeCanvas.bind('<B3-Motion>', self._panCanvas)
+        self.bind('<KeyPress-Escape>', self._cancel)
 
     # endregion
 
@@ -220,14 +241,20 @@ class TKNodeGraph(tk.Frame):
         self._lowestNode = None
         self._nodeCanvas.delete('all')
 
-    def _current(self) -> int:
-        return self._nodeCanvas.find_withtag(tk.CURRENT)[0]
+    def _current(self) -> Optional[int]:
+        try:
+            return self._nodeCanvas.find_withtag(tk.CURRENT)[0]
+        except IndexError:
+            return None
 
     def setPortTypeColor(self, typeStr: str, color: str):
         self.portColors[typeStr] = color
 
     def setPos(self, n: Node, pos: Vec):
         self._idToNode[n.nodeID].pos = pos
+
+    def _canvCoord(self, e) -> Vec:
+        return Vec(self._nodeCanvas.canvasx(e.x), self._nodeCanvas.canvasy(e.y))
 
     # region Hover Events
     def _hoverPortEvent(self, _):
@@ -260,7 +287,17 @@ class TKNodeGraph(tk.Frame):
     # endregion
 
     # region Drag Events
+    def _startPan(self, e):
+        self._nodeCanvas.scan_mark(e.x, e.y)
+
+    def _panCanvas(self, e):
+        if self._dragStart is None:
+            return
+
+        self._nodeCanvas.scan_dragto(e.x, e.y, 1)
+
     def _startPortDrag(self, e):
+        canvPos = self._canvCoord(e)
         if not self._draggingPort:
             self._draggingPort = True
             portID = self._current()
@@ -280,21 +317,22 @@ class TKNodeGraph(tk.Frame):
                 self._dragStart = self._portCoords(portID)
                 self._curPortID = portID
 
-            self._curDragCID = self._nodeCanvas.create_line(self._dragStart.x, self._dragStart.y, e.x, e.y,
+            self._curDragCID = self._nodeCanvas.create_line(self._dragStart.x, self._dragStart.y, canvPos.x, canvPos.y,
                                                             fill=LINK_COLOR, width=LINK_WIDTH)
 
             self._nodeCanvas.lower(self._curDragCID, self._lowestNode)
         else:
-            self._nodeCanvas.coords(self._curDragCID, self._dragStart.x, self._dragStart.y, e.x, e.y)
+            self._nodeCanvas.coords(self._curDragCID, self._dragStart.x, self._dragStart.y, canvPos.x, canvPos.y)
 
     def _startNodeDrag(self, e):
+        canvPos = self._canvCoord(e)
         if not self._draggingNode:
             self._draggingNode = True
             self._curDragCID = self._current()
             self._curNode = self._canvToNodeRef[self._curDragCID]
-            self._dragStart = self._curNode.pos - Vec(e.x, e.y)
+            self._dragStart = self._curNode.pos - canvPos
 
-        self._curNode.pos = Vec(e.x, e.y) + self._dragStart
+        self._curNode.pos = canvPos + self._dragStart
         self._updateNode(self._curNode)
 
         for link in self._curNode.iLinks:
@@ -307,7 +345,7 @@ class TKNodeGraph(tk.Frame):
     def _releaseLinkDrag(self):
         self._draggingPort = False
         c = self._current()
-        fail = True
+        self._nodeCanvas.delete(self._curDragCID)
         try:
             portRef1 = self._canvToPortRef[c]
             portRef2 = self._canvToPortRef[self._curPortID]
@@ -316,9 +354,6 @@ class TKNodeGraph(tk.Frame):
             self.setInfoMessage(f'{portRef1} -> {portRef2}')
 
             if c != self._curPortID and portRef1.io != portRef2.io:
-                fail = False
-
-                self._nodeCanvas.delete(self._curDragCID)
 
                 if portRef1.io == _PortIO.IN:
                     child = portRef1.nodeRef.node
@@ -346,9 +381,6 @@ class TKNodeGraph(tk.Frame):
 
         except KeyError:
             pass
-
-        if fail:
-            self._nodeCanvas.delete(self._curDragCID)
 
     def _releaseNodeDrag(self):
         self._draggingNode = False
@@ -546,3 +578,62 @@ class TKNodeGraph(tk.Frame):
 
         self._nodeCanvas.delete(linkRef.canvasID)
         del self._canvToLinkRef[linkRef.canvasID]
+
+    def _addNewNode(self, nodeType: Type[Node], pos: Vec):
+        self._nodeCanvas.delete(DIALOG_TAG)
+        node = nodeType()
+        node.pos = pos
+        self.nodeGraph.addNode(node)
+        self._makeNewNode(node)
+
+    def _addNewNodeDialog(self, e):
+        self._nodeCanvas.delete(DIALOG_TAG)
+        pos = Vec(self._nodeCanvas.canvasx(e.x), self._nodeCanvas.canvasy(e.y))
+        # TODO bind escape and click outside of frame to cancel
+
+        mainDialogFrame = tk.LabelFrame(self._nodeCanvas)
+        tk.Label(mainDialogFrame, text='Add Node').grid(row=0, column=0, columnspan=2, sticky='new')
+        dialogCanvas = tk.Canvas(mainDialogFrame, height=DIALOG_HEIGHT, borderwidth=0)
+        dialogCanvas.grid(row=1, column=0)
+
+        sb = tk.Scrollbar(mainDialogFrame, orient=tk.VERTICAL, command=dialogCanvas.yview)
+        sb.grid(row=1, column=1, sticky='nse')
+        dialogCanvas.configure(yscrollcommand=sb.set)
+
+        dialogFrame = tk.Frame(dialogCanvas)
+        for idx, nodeType in enumerate(self.nodeGraph.nodeTypes()):
+            btn = tk.Button(dialogFrame,
+                      text=nodeType.__name__,
+                      command=lambda x=nodeType: self._addNewNode(x, pos)
+                      )
+            btn.grid(row=idx + 1, column=0, sticky='nesw')
+            btn.bind('<MouseWheel>', lambda event: dialogCanvas.yview_scroll(-event.delta, 'units'))
+
+        dialogCanvas.create_window(0, 0, anchor='nw', window=dialogFrame)
+        dialogCanvas.update()
+        bbox = dialogCanvas.bbox('all')
+        dialogCanvas.configure(scrollregion=bbox, width=abs(bbox[0]-bbox[2]))
+
+        self._nodeCanvas.create_window(pos.x, pos.y, anchor='center', window=mainDialogFrame, tags=[DIALOG_TAG])
+
+    def _cancel(self, e):
+        print("ASDF")
+        self._nodeCanvas.delete(DIALOG_TAG)
+
+    def _deleteNode(self, e):
+        cur = self._current()
+        if cur is not None:
+            try:
+                node = self._canvToNodeRef[cur]
+            except KeyError:
+                return
+
+            for link in node.iLinks:
+                if link is not None:
+                    self._removeLink(link)
+            for port in node.oLinks:
+                for link in port:
+                    self._removeLink(link)
+
+            self.nodeGraph.removeNode(node.node)
+            self._nodeCanvas.delete(node.nodeTag)
