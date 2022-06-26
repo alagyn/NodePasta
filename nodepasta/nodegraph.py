@@ -3,7 +3,7 @@ from typing import Dict, List, Set, Iterator, Tuple, Optional, Type
 
 import json
 
-from .node import Node, Link, NODE_ERR_CN
+from .node import Node, Link, NODE_ERR_CN, LinkAddr
 from .errors import ExecutionError, NodeGraphError, NodeDefError, NodeTypeError
 from .utils import Vec
 
@@ -13,6 +13,8 @@ _POS = 'pos'
 
 _CLASS = 'class'
 _ARGS = 'args'
+
+#TOFIX call setup on nodes
 
 class NodeGraph:
     def __init__(self):
@@ -25,6 +27,8 @@ class NodeGraph:
         self._filename = ""
         self._nodeIDGen = 0
         self._linkIDGen = 0
+
+        self._datamap: Dict[str, any] = {}
 
     def __len__(self) -> int:
         return len(self._nodeLookup)
@@ -82,14 +86,18 @@ class NodeGraph:
             self.addNode(newNode)
 
         for idx, link in enumerate(jGraph[_LINKS]):
-            if len(link) != 4:
+            if len(link) != 6:
                 raise NodeGraphError(f'NodeGraph.loadFromFile()', f'Link #{idx}, invalid length')
             parent = nodeList[link[0]]
             outIdx = link[1]
-            child = nodeList[link[2]]
-            inIdx = link[3]
+            outVarIdx = link[2]
+            child = nodeList[link[3]]
+            inIdx = link[4]
+            inVarIdx = link[5]
 
-            self.makeLink(parent, outIdx, child, inIdx)
+            addr = LinkAddr(outIdx, outVarIdx, inIdx, inVarIdx)
+
+            self.makeLink(parent, child, addr)
 
     def loadFromFile(self, filename: str):
         """
@@ -158,7 +166,8 @@ class NodeGraph:
                 parentIdx = relativeLookup[link.parent.nodeID]
                 childIdx = relativeLookup[link.child.nodeID]
                 linkJList.append(
-                    [parentIdx, link.outIdx, childIdx, link.inIdx]
+                    [parentIdx, link.addr.outIdx, link.addr.outVarIdx,
+                     childIdx, link.addr.inIdx, link.addr.inVarIdx]
                 )
 
         out = {
@@ -172,6 +181,7 @@ class NodeGraph:
     def addNode(self, node: Node):
         if node.nodeID == -1:
             node.nodeID = self._nodeIDGen
+            node.datamap._datamap = self._datamap
             self._nodeIDGen += 1
             self._nodeLookup[node.nodeID] = node
         else:
@@ -179,15 +189,12 @@ class NodeGraph:
                                  f"Cannot add node {node}, it already belongs to a node graph")
         self._traversal = None
 
-    # noinspection PyProtectedMember
-    def makeLink(self, parent: Node, outIdx: int,
-                 child: Node, inIdx: int) -> Tuple[Link, Optional[Link]]:
+    def makeLink(self, parent: Node, child: Node, addr: LinkAddr) -> Tuple[Link, Optional[Link]]:
         """
         Makes a new link.
         :param parent: The parent node
-        :param outIdx: The idx of the output port
         :param child: The child node
-        :param inIdx: The idx of the input port
+        :param addr: The address of the ports
         :return: The new link and an old link that was replaced, if it exists, else None
         """
         if parent.nodeID not in self._nodeLookup:
@@ -199,31 +206,31 @@ class NodeGraph:
         if parent.nodeID == child.nodeID:
             raise NodeGraphError('NodeGraph.makeLink()',
                                  f'Cannot make link, parent == child: {parent} == {child}')
-        if not 0 <= outIdx < len(parent._OUTPUTS):
-            raise IndexError("NodeGraph.makeLink()", f"{parent} -> {child}: Invalid output idx: {outIdx}")
-        if not 0 <= inIdx < len(child._INPUTS):
-            raise IndexError("NodeGraph.makeLink()", f"{parent} -> {child}: Invalid input idx: {inIdx}")
+        if not 0 <= addr.outIdx < len(parent.outputs):
+            raise IndexError("NodeGraph.makeLink()", f"{parent} -> {child}: Invalid output idx: {addr.outIdx}")
+        if not 0 <= addr.inIdx < len(child.inputs):
+            raise IndexError("NodeGraph.makeLink()", f"{parent} -> {child}: Invalid input idx: {addr.inIdx}")
 
         # Check the typing on the inport
-        inPort = child._INPUTS[inIdx]
-        if not inPort.allowAny and parent._OUTPUTS[outIdx].typeStr != inPort.typeStr:
+        inPort = child.inputs[addr.inIdx]
+        if not inPort.allowAny and parent.outputs[addr.outIdx].typeStr != inPort.typeStr:
             raise NodeTypeError(
                 f"Node.addChild()", f"{parent} -> {child}: Invalid type, expected {inPort.typeStr},"
-                                    f" got {parent._OUTPUTS[outIdx].typeStr}")
+                                    f" got {parent.outputs[addr.outIdx].typeStr}")
 
         # Make new link
-        link = Link(self._linkIDGen, parent, child, outIdx, inIdx)
+        link = Link(self._linkIDGen, parent, child, addr)
         self._linkIDGen += 1
         # Set link in parent
-        parent._children[outIdx][link.linkID] = link
+        parent.outputs[addr.outIdx].addLink(link)
 
+        # Set link in child
+        old = child.inputs[addr.inIdx].addLink(link)
         # Check for old link
-        old = child._parents[inIdx]
         if old is not None:
             # Remove if present
-            self.unlink(old)
-        # Set new link
-        child._parents[inIdx] = link
+            old.parent.outputs[old.addr.outIdx].remLink(old)
+
         # Reset the traversal
         self._traversal = None
         return link, old
@@ -235,10 +242,9 @@ class NodeGraph:
         :param link: The link to remove
         :return: None
         """
-        parent = link.parent
-        child = link.child
-        parent._children[link.outIdx].pop(link.linkID)
-        child._parents[link.inIdx] = None
+        link.parent.outputs[link.addr.outIdx].remLink(link)
+        link.child.inputs[link.addr.inIdx].remLink(link)
+
         self._traversal = None
 
     # noinspection PyProtectedMember
@@ -246,7 +252,7 @@ class NodeGraph:
         for link in node:
             self.unlink(link)
 
-        for link in node._parents:
+        for link in node.incoming():
             if link is not None:
                 self.unlink(link)
 
@@ -296,26 +302,9 @@ class NodeGraph:
         if self._traversal is None:
             self.genTraversal()
 
-        # NodeID -> input list
-        inputMap: Dict[int, List[any]] = {}
-
-        # Init inputs to correct len arrays
+        # Reset input ports to None or []
         for n in self._nodeLookup.values():
-            inputMap[n.nodeID] = [None] * n.numInputs()
+            n.resetPorts()
 
         for n in self._traversal:
-            outputs = n.execute(inputMap[n.nodeID])
-
-            for link in n:
-                try:
-                    inputList = inputMap[link.child.nodeID]
-                except KeyError:
-                    raise ExecutionError("NodeGraph.execute()", f"Child node {link.child} is not in this node graph")
-
-                try:
-                    if inputList[link.inIdx] is None:
-                        inputList[link.inIdx] = outputs[link.outIdx]
-                    else:
-                        raise ExecutionError("NodeGraph.execute()", f"Input already assigned, {link}")
-                except IndexError:
-                    raise ExecutionError("NodeGraph.execute()", f"Invalid input idx, {link}")
+            n.execute()

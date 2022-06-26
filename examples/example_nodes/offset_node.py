@@ -1,10 +1,10 @@
-from typing import Any, List, Dict
 from nodepasta.node import Node, InPort, OutPort
 from nodepasta.argtypes import NodeArg, FLOAT
 
+
 class OffsetNode(Node):
     _INPUTS = [InPort("value", "float")]
-    _OUTPUTS = [OutPort("value", "float")]
+    _OUTPUTS = [OutPort("output", "float")]
     NODETYPE = "Offset"
     _ARGS = [NodeArg("offset", FLOAT, "Offset", 2)]
 
@@ -12,8 +12,10 @@ class OffsetNode(Node):
         super(OffsetNode, self).__init__()
         self.offset = self.args['offset']
 
-    def _execute(self, inputs: List[Any]) -> List[Any]:
-        if inputs[0] is not None:
-            return [inputs[0] + self.offset.value]
-        else:
-            return [None]
+    def setup(self) -> None:
+        pass
+
+    def execute(self) -> None:
+        v = self.inputs[0].value
+        if v is not None:
+            self.outputs[0].setValue(v + self.offset.value)

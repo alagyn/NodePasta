@@ -1,10 +1,10 @@
 import tkinter as tk
 from enum import IntEnum
 
-from typing import Optional, List, Dict, Iterator, Type
+from typing import Optional, List, Dict, Iterator, Type, Tuple
 
-from nodepasta.node import Node, IOPort, Link, _NodeLinkIter
-from nodepasta.node_graph import NodeGraph
+from nodepasta.node import Node, IOPort, Link, LinkAddr
+from nodepasta.nodegraph import NodeGraph
 from nodepasta.utils import Vec
 from nodepasta.errors import NodeGraphError
 from nodepasta.argtypes import NodeArgValue
@@ -19,15 +19,19 @@ class _PortIO(IntEnum):
 
 
 class _NodeRef:
-    def __init__(self, node: Node, canvasID: int, nodeTag: str):
+    def __init__(self, node: Node, nodeTag: str):
         self.node = node
-        self.iPorts = []
-        self.oPorts = []
-        self.iLinks: List[Optional[_LinkRef]] = [None] * node.numInputs()
-        self.oLinks: List[List[_LinkRef]] = [[]] * node.numOutputs()
+        self.iPorts: List[_PortRef] = []
+        self.oPorts: List[_PortRef] = []
         self.args: Dict[str, NodeArgValue] = {}
-        self.canvasID = canvasID
+        self.argCanvasID = -1
+        self.blockCanvasID = -1
         self.nodeTag = nodeTag
+        self.numPorts = 0
+        self.textTag = f'{nodeTag}_text'
+        self.argWidth = 0
+        self.argHeight = 0
+        self.blockWidth = 0
 
     @property
     def pos(self) -> Vec:
@@ -37,28 +41,44 @@ class _NodeRef:
     def pos(self, v: Vec):
         self.node.pos = v
 
-    def __iter__(self) -> _NodeLinkIter:
-        return self.node.__iter__()
+    def __iter__(self) -> Iterator[Link]:
+        return iter(self.node)
 
     def __str__(self):
-        return f"PosNode({self.node}, pos: {self.node})"
+        return f"Ref({self.node}, pos: {self.node})"
+
+
+class _VarPortRef:
+    def __init__(self, varIdx: int, parent: '_PortRef'):
+        self.canvasID = -1
+        self.textCanvasID = -1
+        self.varIdx = varIdx
+        self.parent = parent
+        self.links: List[Optional[_LinkRef]] = []
+        if self.parent.io == _PortIO.IN:
+            self.links.append(None)
+
+    def __str__(self):
+        return f'{self.parent}.{self.varIdx}'
 
 
 class _PortRef:
-    def __init__(self, canvasID: int, textCanvasID: int, node: _NodeRef, idx: int, io: _PortIO, typeStr: str):
-        self.portCanvasID = canvasID
+    def __init__(self, node: _NodeRef, port: IOPort, idx: int, io: _PortIO, typeStr: str):
         self.nodeRef = node
+        self.port = port
+        self.textCanvasID = -1
         self.idx = idx
+        self.varPorts: List[_VarPortRef] = []
         self.io = io
         self.typeStr = typeStr
-        self.textCanvasID = textCanvasID
+        self.btnWindowID = -1
 
     def __str__(self):
         return f'{self.nodeRef.node}:{self.io.name}:{self.idx}'
 
 
 class _LinkRef:
-    def __init__(self, canvasID: int, parent: _NodeRef, child: _NodeRef, outPort: _PortRef, inPort: _PortRef,
+    def __init__(self, canvasID: int, parent: _NodeRef, child: _NodeRef, outPort: _VarPortRef, inPort: _VarPortRef,
                  link: Link):
         self.canvasID = canvasID
         self.parent = parent
@@ -97,6 +117,9 @@ LINK_COLOR = "grey70"
 
 DIALOG_TAG = 'dialog'
 DIALOG_HEIGHT = 150
+
+VAR_PORT_BTN_SIZE = 10
+
 
 # endregion
 
@@ -152,7 +175,7 @@ class TKNodeGraph(tk.Frame):
         self._canvToNodeRef: Dict[int, _NodeRef] = {}
 
         # Port Canvas ID -> PortRef
-        self._canvToPortRef: Dict[int, _PortRef] = {}
+        self._canvToPortRef: Dict[int, _VarPortRef] = {}
 
         # Link ID -> LinkRef
         self._idToLink: Dict[int, _LinkRef] = {}
@@ -163,6 +186,8 @@ class TKNodeGraph(tk.Frame):
             self._argTypeHandlers: Dict[str, TKArgHandler] = DEF_HANDLERS
         else:
             self._argTypeHandlers: Dict[str, TKArgHandler] = {}
+
+        self._PIXEL = tk.PhotoImage(width=1, height=1)
 
         # Do last?
         if len(self.nodeGraph) > 0:
@@ -190,6 +215,7 @@ class TKNodeGraph(tk.Frame):
 
     # endregion
 
+    # region Info Funcs
     def setInfoMessage(self, msg: str):
         self._infoLabel.configure(fg="black")
         self._infoVar.set(msg)
@@ -197,6 +223,10 @@ class TKNodeGraph(tk.Frame):
     def setErrorMessage(self, msg: str):
         self._infoLabel.configure(fg="red")
         self._infoVar.set(msg)
+
+    # endregion
+
+    # region NodeGraph Funcs
 
     def unloadArgs(self) -> Dict[int, Dict[str, any]]:
         # Node ID -> Dict[argName, value]
@@ -240,6 +270,8 @@ class TKNodeGraph(tk.Frame):
         self._canvToPortRef = {}
         self._lowestNode = None
         self._nodeCanvas.delete('all')
+
+    # endregion
 
     def _current(self) -> Optional[int]:
         try:
@@ -302,16 +334,20 @@ class TKNodeGraph(tk.Frame):
             self._draggingPort = True
             portID = self._current()
 
-            portRef = self._canvToPortRef[portID]
+            varPortRef = self._canvToPortRef[portID]
 
             self._dragStart = None
 
-            if portRef.io == _PortIO.IN:
-                link = portRef.nodeRef.iLinks[portRef.idx]
+            if varPortRef.parent.io == _PortIO.IN:
+                try:
+                    link = varPortRef.links[0]
+                except IndexError:
+                    link = None
+
                 if link is not None:
-                    self._dragStart = self._portCoords(link.oPort.portCanvasID)
+                    self._dragStart = self._portCoords(link.oPort.canvasID)
                     self._removeLink(link)
-                    self._curPortID = link.oPort.portCanvasID
+                    self._curPortID = link.oPort.canvasID
 
             if self._dragStart is None:
                 self._dragStart = self._portCoords(portID)
@@ -335,20 +371,27 @@ class TKNodeGraph(tk.Frame):
         self._curNode.pos = canvPos + self._dragStart
         self._updateNode(self._curNode)
 
-        for link in self._curNode.iLinks:
-            if link is not None:
-                self._updateLink(link)
-        for port in self._curNode.oLinks:
-            for link in port:
-                self._updateLink(link)
+        for iport in self._curNode.iPorts:
+            for varport in iport.varPorts:
+                for link in varport.links:
+                    if link is not None:
+                        self._updateLink(link)
+        for oport in self._curNode.oPorts:
+            for varport in oport.varPorts:
+                for link in varport.links:
+                    if link is not None:
+                        self._updateLink(link)
 
     def _releaseLinkDrag(self):
         self._draggingPort = False
         c = self._current()
         self._nodeCanvas.delete(self._curDragCID)
         try:
-            portRef1 = self._canvToPortRef[c]
-            portRef2 = self._canvToPortRef[self._curPortID]
+            varportRef1 = self._canvToPortRef[c]
+            varportRef2 = self._canvToPortRef[self._curPortID]
+
+            portRef1 = varportRef1.parent
+            portRef2 = varportRef2.parent
 
             # TODO remove?
             self.setInfoMessage(f'{portRef1} -> {portRef2}')
@@ -360,16 +403,21 @@ class TKNodeGraph(tk.Frame):
                     parent = portRef2.nodeRef.node
 
                     inIdx = portRef1.idx
+                    inVarIdx = varportRef1.varIdx
                     outIdx = portRef2.idx
+                    outVarIdx = varportRef2.varIdx
                 else:
                     child = portRef2.nodeRef.node
                     parent = portRef1.nodeRef.node
 
                     inIdx = portRef2.idx
+                    inVarIdx = varportRef2.varIdx
                     outIdx = portRef1.idx
+                    outVarIdx = varportRef1.varIdx
 
                 try:
-                    link, removed = self.nodeGraph.makeLink(parent, outIdx, child, inIdx)
+                    addr = LinkAddr(outIdx, outVarIdx, inIdx, inVarIdx)
+                    link, removed = self.nodeGraph.makeLink(parent, child, addr)
 
                     if removed is not None:
                         linkRef = self._idToLink[removed.linkID]
@@ -414,7 +462,7 @@ class TKNodeGraph(tk.Frame):
         return DEF_PORT_COLOR
 
     def _getPortColor(self, portID: int) -> str:
-        return self._getTypeColor(self._canvToPortRef[portID].typeStr)
+        return self._getTypeColor(self._canvToPortRef[portID].parent.typeStr)
 
     def _drawPort(self, x, y, fill: str, nodeTag: str) -> int:
         a = x - HALF_PORT
@@ -428,16 +476,20 @@ class TKNodeGraph(tk.Frame):
 
     def _updateNode(self, n: _NodeRef):
         # noinspection PyTypeChecker
-        x, y = self._nodeCanvas.coords(n.canvasID)
+        x, y = self._nodeCanvas.coords(n.argCanvasID)
         self._nodeCanvas.move(n.nodeTag, n.pos.x - x, n.pos.y - y)
 
+        self._arrangePortBlock(n)
+
         for port in n.iPorts:
-            color = self._getTypeColor(port.typeStr)
-            self._nodeCanvas.itemconfigure(port.portCanvasID, fill=color)
+            for varport in port.varPorts:
+                color = self._getTypeColor(port.typeStr)
+                self._nodeCanvas.itemconfigure(varport.canvasID, fill=color)
 
         for port in n.oPorts:
-            color = self._getTypeColor(port.typeStr)
-            self._nodeCanvas.itemconfigure(port.portCanvasID, fill=color)
+            for varport in port.varPorts:
+                color = self._getTypeColor(port.typeStr)
+                self._nodeCanvas.itemconfigure(varport.canvasID, fill=color)
 
     def _makeNewNode(self, n: Node, pos: Optional[Vec] = None):
         nodeTag = str(n)
@@ -449,10 +501,12 @@ class TKNodeGraph(tk.Frame):
 
         nodeFrame = tk.LabelFrame(self._nodeCanvas)
         tk.Label(nodeFrame, text=f'{n.NODETYPE}:{n.nodeID}').grid(row=0, column=0, sticky='nesw')
-        nodeCanvasID = self._nodeCanvas.create_window(pos.x, pos.y, anchor='nw', window=nodeFrame,
-                                                      tags=[NODE_HVR_TAG, nodeTag])
+        argCanvasID = self._nodeCanvas.create_window(pos.x, pos.y, anchor='nw', window=nodeFrame,
+                                                     tags=[NODE_HVR_TAG, nodeTag])
 
-        nodeRef = _NodeRef(n, nodeCanvasID, nodeTag)
+        nodeRef = _NodeRef(n, nodeTag)
+        nodeRef.argCanvasID = argCanvasID
+
         self._idToNode[n.nodeID] = nodeRef
 
         for idx, arg in enumerate(n.args.values()):
@@ -464,70 +518,156 @@ class TKNodeGraph(tk.Frame):
             argFrame.grid(row=idx + 1, column=0, sticky='nesw')
             nodeRef.args[arg.name] = argValue
 
+        self._nodeCanvas.update()
+        bounds = self._nodeCanvas.bbox(argCanvasID)
+        nodeRef.argWidth = max(nodeRef.argWidth, abs(bounds[2] - bounds[0]))
+        nodeRef.argHeight = max(nodeRef.argHeight, abs(bounds[3] - bounds[1]))
+
         self._makePortBlock(nodeRef)
 
-    def _drawPorts(self, iterator: Iterator[IOPort], nodeRef: _NodeRef, textTag: str, textAnchor: str,
-                   portDir: _PortIO) -> List[_PortRef]:
+    def _makeNewVarPort(self, varPortRef: _VarPortRef):
+        nodeRef = varPortRef.parent.nodeRef
+
+        textAnchor = 'w' if varPortRef.parent.io == _PortIO.IN else 'e'
+        color = self._getTypeColor(varPortRef.parent.typeStr)
+
+        portID = self._drawPort(0, 0, fill=color, nodeTag=nodeRef.nodeTag)
+        if varPortRef.parent.port.variable:
+            text = varPortRef.varIdx
+        else:
+            text = varPortRef.parent.port.name
+
+        # noinspection PyTypeChecker
+        textID = self._nodeCanvas.create_text(0, 0, text=text, anchor=textAnchor,
+                                              tags=[nodeRef.nodeTag, nodeRef.textTag])
+
+        self._nodeCanvas.update()
+        bounds = self._nodeCanvas.bbox(textID)
+        nodeRef.blockWidth = max(nodeRef.blockWidth, abs(bounds[2] - bounds[0]))
+
+        varPortRef.canvasID = portID
+        varPortRef.textCanvasID = textID
+        self._canvToPortRef[portID] = varPortRef
+
+    def _drawPorts(self, iterator: Iterator[IOPort], nodeRef: _NodeRef, textAnchor: str,
+                   portDir: _PortIO) -> Tuple[List[_PortRef], int, int]:
         out = []
-
+        pcount = 0
+        vpcount = 0
         for idx, p in enumerate(iterator):
-            color = self._getTypeColor(p.typeStr)
-            portID = self._drawPort(0, 0, fill=color, nodeTag=nodeRef.nodeTag)
-            # noinspection PyTypeChecker
-            textID = self._nodeCanvas.create_text(0, 0, text=p.name, anchor=textAnchor,
-                                                  tags=[nodeRef.nodeTag, textTag])
-
-            portRef = _PortRef(portID, textID, nodeRef, idx, portDir, p.typeStr)
-            self._canvToPortRef[portID] = portRef
+            vp = []
+            portRef = _PortRef(nodeRef, p, idx, portDir, p.typeStr)
+            pcount += 1
+            for varIdx in range(p.cnt):
+                varPortRef = _VarPortRef(varIdx, portRef)
+                self._makeNewVarPort(varPortRef)
+                vp.append(varPortRef)
+                if p.variable:
+                    vpcount += 1
+            portRef.varPorts = vp
             out.append(portRef)
+            if p.variable:
+                # noinspection PyTypeChecker
+                portRef.textCanvasID = self._nodeCanvas.create_text(0, 0, text=p.name, anchor=textAnchor,
+                                                                    tags=[nodeRef.nodeTag, nodeRef.textTag])
 
-        return out
+        return out, pcount, vpcount
+
+    def _addVarPort(self, portref: _PortRef):
+        if not portref.port.variable:
+            raise NodeGraphError("TKNodeGraph._addVarPort()", "DEV: Cannot add varport to non variable port")
+
+        varPortRef = _VarPortRef(portref.port.cnt, portref)
+        portref.port.addvarport()
+        portref.nodeRef.numPorts += 1
+        portref.varPorts.append(varPortRef)
+        self._makeNewVarPort(varPortRef)
+        self._updateNode(portref.nodeRef)
+
+    def _remVarPort(self, portref: _PortRef):
+        if not portref.port.variable:
+            raise NodeGraphError("TKNodeGraph._remVarPort()", "DEV: Cannot rem varport on non variable port")
+        if portref.port.cnt > 1:
+            for link in portref.varPorts[-1].links:
+                if link is not None:
+                    self._removeLink(link)
+            portref.port.remvarport()
+            portref.nodeRef.numPorts -= 1
+            varport = portref.varPorts.pop()
+            self._nodeCanvas.delete(varport.textCanvasID, varport.canvasID)
+
+            del self._canvToPortRef[varport.canvasID]
+
+            self._updateNode(portref.nodeRef)
+
+    def _makeVarBtns(self, port: _PortRef, x, y, tag):
+
+        btnFrame = tk.Frame(self._nodeCanvas)
+
+        addBtn = tk.Button(btnFrame, text="+", command=lambda e=port: self._addVarPort(e),
+                           image=self._PIXEL,
+                           compound='center',
+                           padx=0, pady=0,
+                           width=VAR_PORT_BTN_SIZE, height=VAR_PORT_BTN_SIZE)
+        addBtn.grid(row=0, column=0,
+                    ipadx=0, ipady=0,
+                    )
+
+        remBtn = tk.Button(btnFrame, text='-', command=lambda e=port: self._remVarPort(e),
+                           image=self._PIXEL, compound='center',
+                           padx=0, pady=0,
+                           width=VAR_PORT_BTN_SIZE, height=VAR_PORT_BTN_SIZE)
+
+        remBtn.grid(row=0, column=1)
+
+        port.btnWindowID = self._nodeCanvas.create_window(x, y, window=btnFrame, anchor="w",
+                                                          tags=[tag])
 
     def _makePortBlock(self, nodeRef: _NodeRef):
         if self._lowestNode is None:
-            self._lowestNode = nodeRef.canvasID
+            self._lowestNode = nodeRef.argCanvasID
 
         n = nodeRef.node
 
-        textTag = f"{nodeRef.nodeTag}_text"
-
-        nodeRef.iPorts = self._drawPorts(n.inputs(), nodeRef, textTag, "w", _PortIO.IN)
-        nodeRef.oPorts = self._drawPorts(n.outputs(), nodeRef, textTag, "e", _PortIO.OUT)
+        nodeRef.iPorts, icnt, ivpcnt = self._drawPorts(n.inputs, nodeRef, "w", _PortIO.IN)
+        nodeRef.oPorts, ocnt, ovpcnt = self._drawPorts(n.outputs, nodeRef, "e", _PortIO.OUT)
 
         if len(nodeRef.iPorts) > 0:
-            lowestPort = nodeRef.iPorts[0].portCanvasID
+            lowestPort = nodeRef.iPorts[0].varPorts[0].canvasID
         else:
-            lowestPort = nodeRef.oPorts[0].portCanvasID
+            lowestPort = nodeRef.oPorts[0].varPorts[0].canvasID
 
-        # Update to foce the canvas to recalc bounds
-        self._nodeCanvas.update()
-        argBounds = self._nodeCanvas.bbox(nodeRef.canvasID)
-        argWidth = abs(argBounds[2] - argBounds[0])
+        numPorts = icnt + ivpcnt + ocnt + ovpcnt
+        nodeRef.numPorts = numPorts
 
-        centerX = int((argBounds[0] + argBounds[2]) / 2)
-        bottomY = max(argBounds[1], argBounds[3])
-
-        ioBounds = self._nodeCanvas.bbox(textTag)
-        ioWidth = max(abs(ioBounds[2] - ioBounds[0]) + PORT_BLOCK_H_OFFSET, argWidth)
-
-        numPorts = n.numInputs() + n.numOutputs()
-        ioHeight = numPorts * IO_HEIGHT
-
-        halfWidth = int(ioWidth / 2)
-        leftX = centerX - halfWidth
-        rightX = centerX + halfWidth
-
-        rectCanvasID = self._nodeCanvas.create_rectangle(leftX, bottomY, rightX,
-                                                         bottomY + ioHeight, fill=PORT_BLOCK_COLOR,
+        rectCanvasID = self._nodeCanvas.create_rectangle(0, 0, 1,
+                                                         1, fill=PORT_BLOCK_COLOR,
                                                          tags=[NODE_HVR_TAG, nodeRef.nodeTag])
+        nodeRef.blockCanvasID = rectCanvasID
         self._canvToNodeRef[rectCanvasID] = nodeRef
 
         self._nodeCanvas.lower(rectCanvasID, lowestPort)
 
+        self._arrangePortBlock(nodeRef)
+
+    def _arrangePortBlock(self, nodeRef: _NodeRef):
+
+        centerX = int(nodeRef.node.pos.x + (nodeRef.argWidth / 2))
+        bottomY = int(nodeRef.node.pos.y + nodeRef.argHeight)
+
+        ioWidth = max(nodeRef.argWidth, nodeRef.blockWidth + PORT_BLOCK_H_OFFSET)
+
+        halfWidth = int(ioWidth / 2)
+        leftX = centerX - halfWidth
+        rightX = centerX + halfWidth
+        ioHeight = nodeRef.numPorts * IO_HEIGHT
+
+        self._nodeCanvas.coords(nodeRef.blockCanvasID, leftX, bottomY, rightX, bottomY + ioHeight)
+
         usableHeight = ioHeight - (2 * PORT_VERT_OFFSET)
 
         try:
-            deltaY = usableHeight / (numPorts - 1)
+            deltaY = usableHeight / (nodeRef.numPorts - 1)
         except ZeroDivisionError:
             deltaY = 0
 
@@ -535,25 +675,36 @@ class TKNodeGraph(tk.Frame):
         iPortX = leftX - PORT_HORZ_OFFSET
         oPortX = rightX + PORT_HORZ_OFFSET
 
-        for p in nodeRef.oPorts:
-            self._movePort(p.portCanvasID, oPortX, curY)
-            self._nodeCanvas.coords(p.textCanvasID, oPortX - PORT_TEXT_OFFSET, curY)
-            curY += deltaY
+        def _align(ports: List[_PortRef], x, textOffset):
+            nonlocal curY
+            for p in ports:
+                if p.port.variable:
+                    self._nodeCanvas.coords(p.textCanvasID, x + textOffset, curY)
+                    bounds = self._nodeCanvas.bbox(p.textCanvasID)
+                    # TOFIX output port btn location
+                    btnX = max(bounds[0], bounds[2]) + 10
+                    if p.btnWindowID == -1:
+                        self._makeVarBtns(p, btnX, curY, nodeRef.nodeTag)
+                    else:
+                        self._nodeCanvas.coords(p.btnWindowID, btnX, curY)
+                    curY += deltaY
+                for vp in p.varPorts:
+                    self._movePort(vp.canvasID, x, curY)
+                    self._nodeCanvas.coords(vp.textCanvasID, x + textOffset, curY)
+                    curY += deltaY
 
-        for p in nodeRef.iPorts:
-            self._movePort(p.portCanvasID, iPortX, curY)
-            self._nodeCanvas.coords(p.textCanvasID, iPortX + PORT_TEXT_OFFSET, curY)
-            curY += deltaY
+        _align(nodeRef.oPorts, oPortX, -PORT_TEXT_OFFSET)
+        _align(nodeRef.iPorts, iPortX, PORT_TEXT_OFFSET)
 
     def _makeNewLink(self, link: Link):
         parent = self._idToNode[link.parent.nodeID]
         child = self._idToNode[link.child.nodeID]
 
-        outPort = parent.oPorts[link.outIdx]
-        inPort = child.iPorts[link.inIdx]
+        outPort = parent.oPorts[link.addr.outIdx].varPorts[link.addr.outVarIdx]
+        inPort = child.iPorts[link.addr.inIdx].varPorts[link.addr.inVarIdx]
 
-        end1 = self._portCoords(outPort.portCanvasID)
-        end2 = self._portCoords(inPort.portCanvasID)
+        end1 = self._portCoords(outPort.canvasID)
+        end2 = self._portCoords(inPort.canvasID)
 
         canvasID = self._nodeCanvas.create_line(end1.x, end1.y, end2.x, end2.y, fill=LINK_COLOR, width=LINK_WIDTH)
         self._nodeCanvas.lower(canvasID, self._lowestNode)
@@ -562,19 +713,19 @@ class TKNodeGraph(tk.Frame):
         self._idToLink[link.linkID] = linkRef
         self._canvToLinkRef[canvasID] = linkRef
 
-        parent.oLinks[link.outIdx].append(linkRef)
-        child.iLinks[link.inIdx] = linkRef
+        outPort.links.append(linkRef)
+        inPort.links[0] = linkRef
 
     def _updateLink(self, linkRef: _LinkRef):
-        end1 = self._portCoords(linkRef.oPort.portCanvasID)
-        end2 = self._portCoords(linkRef.iPort.portCanvasID)
+        end1 = self._portCoords(linkRef.oPort.canvasID)
+        end2 = self._portCoords(linkRef.iPort.canvasID)
 
         self._nodeCanvas.coords(linkRef.canvasID, end1.x, end1.y, end2.x, end2.y)
 
     def _removeLink(self, linkRef: _LinkRef):
         self.nodeGraph.unlink(linkRef.link)
-        linkRef.parent.oLinks[linkRef.oPort.idx].remove(linkRef)
-        linkRef.child.iLinks[linkRef.iPort.idx] = None
+        linkRef.oPort.links.remove(linkRef)
+        linkRef.iPort.links[0] = None
 
         self._nodeCanvas.delete(linkRef.canvasID)
         del self._canvToLinkRef[linkRef.canvasID]
@@ -589,7 +740,7 @@ class TKNodeGraph(tk.Frame):
     def _addNewNodeDialog(self, e):
         self._nodeCanvas.delete(DIALOG_TAG)
         pos = Vec(self._nodeCanvas.canvasx(e.x), self._nodeCanvas.canvasy(e.y))
-        # TODO bind escape and click outside of frame to cancel
+        # TODO bind click outside of frame to cancel
 
         mainDialogFrame = tk.LabelFrame(self._nodeCanvas)
         tk.Label(mainDialogFrame, text='Add Node').grid(row=0, column=0, columnspan=2, sticky='new')
@@ -603,24 +754,23 @@ class TKNodeGraph(tk.Frame):
         dialogFrame = tk.Frame(dialogCanvas)
         for idx, nodeType in enumerate(self.nodeGraph.nodeTypes()):
             btn = tk.Button(dialogFrame,
-                      text=nodeType.__name__,
-                      command=lambda x=nodeType: self._addNewNode(x, pos)
-                      )
+                            text=nodeType.__name__,
+                            command=lambda x=nodeType: self._addNewNode(x, pos)
+                            )
             btn.grid(row=idx + 1, column=0, sticky='nesw')
             btn.bind('<MouseWheel>', lambda event: dialogCanvas.yview_scroll(-event.delta, 'units'))
 
         dialogCanvas.create_window(0, 0, anchor='nw', window=dialogFrame)
         dialogCanvas.update()
         bbox = dialogCanvas.bbox('all')
-        dialogCanvas.configure(scrollregion=bbox, width=abs(bbox[0]-bbox[2]))
+        dialogCanvas.configure(scrollregion=bbox, width=abs(bbox[0] - bbox[2]))
 
         self._nodeCanvas.create_window(pos.x, pos.y, anchor='center', window=mainDialogFrame, tags=[DIALOG_TAG])
 
-    def _cancel(self, e):
-        print("ASDF")
+    def _cancel(self, _):
         self._nodeCanvas.delete(DIALOG_TAG)
 
-    def _deleteNode(self, e):
+    def _deleteNode(self, _):
         cur = self._current()
         if cur is not None:
             try:
@@ -628,12 +778,16 @@ class TKNodeGraph(tk.Frame):
             except KeyError:
                 return
 
-            for link in node.iLinks:
-                if link is not None:
-                    self._removeLink(link)
-            for port in node.oLinks:
-                for link in port:
-                    self._removeLink(link)
+            for port in node.iPorts:
+                for varport in port.varPorts:
+                    for link in varport.links:
+                        if link is not None:
+                            self._removeLink(link)
+            for port in node.oPorts:
+                for varport in port.varPorts:
+                    for link in varport.links:
+                        if link is not None:
+                            self._removeLink(link)
 
             self.nodeGraph.removeNode(node.node)
             self._nodeCanvas.delete(node.nodeTag)

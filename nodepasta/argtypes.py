@@ -25,7 +25,7 @@ class NodeArg:
 
 
 class EnumNodeArg(NodeArg):
-    def __init__(self, name: str, default: str, values: List[str]):
+    def __init__(self, name: str, display: str, default: str, values: List[str]):
         super().__init__(name, ENUM, default)
         self.values = values
 

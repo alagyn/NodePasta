@@ -1,5 +1,3 @@
-from typing import List, Any, Dict
-
 from nodepasta.node import Node, InPort, OutPort
 
 class Power(Node):
@@ -7,10 +5,15 @@ class Power(Node):
     _OUTPUTS = [OutPort("value", "float")]
     NODETYPE = "Power"
 
-    def _execute(self, inputs: List[Any]) -> List[Any]:
-        if inputs[1] is None:
+    def setup(self) -> None:
+        pass
+
+    def execute(self) -> None:
+        if self.inputs[1].value is None:
             powr = 2
         else:
-            powr = inputs[1]
+            powr = self.inputs[1].value
 
-        return [pow(inputs[0], powr)]
+        out = pow(self.inputs[0].value, powr)
+
+        self.outputs[0].setValue(out)

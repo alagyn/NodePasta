@@ -1,5 +1,5 @@
 from example_nodes import const_source, power_node, output_node, sum_node
-from nodepasta.node_graph import NodeGraph
+from nodepasta.nodegraph import NodeGraph
 
 from nodepasta.tk.tk_node_graph import TKNodeGraph
 from nodepasta.utils import Vec
@@ -7,6 +7,7 @@ from nodepasta.utils import Vec
 import tkinter as tk
 
 if __name__ == '__main__':
+    # TOFIX update
     ng = NodeGraph()
 
     src1 = const_source.ConstSource(10)

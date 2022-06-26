@@ -1,8 +1,8 @@
 import sys
 import tkinter as tk
 
-from nodepasta.node_graph import NodeGraph
-from .example_nodes import const_source, power_node, output_node, sum_node, offset_node
+from nodepasta.nodegraph import NodeGraph
+from .example_nodes import const_source, power_node, output_node, sum_node, offset_node, listifier
 from nodepasta.errors import NodeGraphError
 from nodepasta.tk.tk_node_graph import TKNodeGraph
 
@@ -21,12 +21,12 @@ if __name__ == '__main__':
         power_node.Power,
         sum_node.SumNode,
         output_node.OutputNode,
-        offset_node.OffsetNode
+        offset_node.OffsetNode,
+        listifier.ListifierNode
     ]
 
     for t in nodeTypes:
         ng.registerNodeClass(t)
-
 
     root = tk.Tk()
     root.columnconfigure(0, weight=1)
@@ -42,6 +42,7 @@ if __name__ == '__main__':
     ngFrame.setPortTypeColor("float", "lightgreen")
     ngFrame.setPortTypeColor('int', "brown")
 
+
     def reload():
         try:
             ng.loadFromFile(filename)
@@ -51,9 +52,11 @@ if __name__ == '__main__':
             print("ERROR:", str(err))
             exit()
 
+
     reload()
 
     ngFrame.grid(row=0, column=0, sticky='nesw')
+
 
     def execute():
         try:
@@ -62,16 +65,21 @@ if __name__ == '__main__':
             # Set an error message in the info box
             ngFrame.setErrorMessage(f'{e.loc}: {e.msg}')
 
+
     btnFrame = tk.LabelFrame(root, text='Buttons')
     btnFrame.grid(row=1, column=0, sticky='sw')
+
 
     def save():
         file = 'out.json'
         print(f"Saving to {file}")
         ng.saveToFile(file)
 
+
     tk.Button(btnFrame, text="Execute", command=execute).grid(row=0, column=0, sticky='w')
     tk.Button(btnFrame, text="Reload", command=reload).grid(row=0, column=1, sticky='w')
     tk.Button(btnFrame, text='Save', command=save).grid(row=0, column=2, stick='w')
+
+    root.state('zoomed')
 
     root.mainloop()

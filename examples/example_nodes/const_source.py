@@ -1,7 +1,6 @@
-from typing import List, Any, Dict
-
-from nodepasta.node import Node, OutPort
 from nodepasta.argtypes import NodeArg, FLOAT
+from nodepasta.node import Node, OutPort
+
 
 class ConstSource(Node):
     _OUTPUTS = [OutPort("value", "float")]
@@ -12,5 +11,8 @@ class ConstSource(Node):
         super(ConstSource, self).__init__()
         self.v = self.args['value']
 
-    def _execute(self, inputs: List[Any]) -> List[Any]:
-        return [self.v.value]
+    def setup(self) -> None:
+        pass
+
+    def execute(self) -> None:
+        self.outputs[0].setValue(self.v.value)
