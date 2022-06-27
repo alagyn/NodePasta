@@ -25,10 +25,12 @@ class NodeArg:
 
 
 class EnumNodeArg(NodeArg):
-    def __init__(self, name: str, display: str, default: str, values: List[str]):
-        super().__init__(name, ENUM, default)
-        self.values = values
+    def __init__(self, name: str, display: str, value: str, enums: List[str]):
+        super().__init__(name, ENUM, display, value)
+        self.enums = enums
 
+    def copy(self) -> 'NodeArg':
+        return EnumNodeArg(self.name, self.display, self.value, self.enums)
 
 class NodeArgValue(abc.ABC):
     @abc.abstractmethod

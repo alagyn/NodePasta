@@ -87,8 +87,10 @@ class TKEnumArgHandler(TKArgHandler):
     @classmethod
     def draw(cls, frame: tk.Frame, arg: EnumNodeArg) -> NodeArgValue:
         tk.Label(frame, text=f"{arg.display}:").grid(row=0, column=0, sticky='nesw')
-        var = tk.StringVar(value=arg.values if arg.value is not None else "")
-        ttk.Combobox(frame, textvariable=var, values=arg.values, state='readonly')
+        var = tk.StringVar(value=arg.value if arg.value is not None else "")
+        ttk.Combobox(frame, textvariable=var, values=arg.enums, state='readonly',
+                     width=10
+                     ).grid(row=0, column=1)
         return TKVarArg(var, arg)
 
 

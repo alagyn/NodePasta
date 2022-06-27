@@ -2,7 +2,7 @@ import sys
 import tkinter as tk
 
 from nodepasta.nodegraph import NodeGraph
-from .example_nodes import const_source, power_node, output_node, sum_node, offset_node, listifier
+from .example_nodes import const_source, power_node, output_node, sum_node, offset_node, listifier, enumNode
 from nodepasta.errors import NodeGraphError
 from nodepasta.tk.tk_node_graph import TKNodeGraph
 
@@ -22,7 +22,8 @@ if __name__ == '__main__':
         sum_node.SumNode,
         output_node.OutputNode,
         offset_node.OffsetNode,
-        listifier.ListifierNode
+        listifier.ListifierNode,
+        enumNode.EnumNode
     ]
 
     for t in nodeTypes:

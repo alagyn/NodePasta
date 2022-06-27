@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Dict, List, Set, Iterator, Tuple, Optional, Type
+from typing import Dict, List, Set, Iterator, Tuple, Optional, Type, Deque
 
 import json
 
@@ -28,7 +28,7 @@ class NodeGraph:
         self._nodeIDGen = 0
         self._linkIDGen = 0
 
-        self._datamap: Dict[str, any] = {}
+        self.datamap: Dict[str, any] = {}
 
     def __len__(self) -> int:
         return len(self._nodeLookup)
@@ -39,13 +39,11 @@ class NodeGraph:
     def nodeTypes(self) -> Iterator[Type[Node]]:
         return sorted(self._nodeTypes.values(), key=lambda e: e.__name__).__iter__()
 
-    def _loadFromFile(self, filename: str):
-        try:
-            with open(filename, mode='r') as f:
-                jGraph = json.load(f)
-        except json.JSONDecodeError as err:
-            raise NodeGraphError("NodeGraph.loadFromFile()", f"Cannot load file, JSON Error: {err}")
+    def setupNodes(self):
+        for node in self:
+            node.setup()
 
+    def _loadFromJSON(self, jGraph):
         nodeList = []
 
         if _NODES not in jGraph or len(jGraph[_NODES]) == 0:
@@ -99,6 +97,21 @@ class NodeGraph:
 
             self.makeLink(parent, child, addr)
 
+    def loadFromJSON(self, jGraph):
+        """
+        Clears the current graph and lodds the graph from a json object
+        :param jGraph: The JSON dict-like object
+        :return: None
+        """
+        self._nodeLookup = {}
+        self._traversal = None
+        try:
+            self._loadFromJSON(jGraph)
+        except:
+            self._nodeLookup = {}
+            self._traversal = None
+            raise
+
     def loadFromFile(self, filename: str):
         """
         Clears the current graph and tries to load from the file
@@ -108,14 +121,14 @@ class NodeGraph:
         self._nodeLookup = {}
         self._traversal = None
         self._filename = filename
-
         try:
-            self._loadFromFile(filename)
-            self.genTraversal()
-        except:
-            self._nodeLookup = {}
-            self._traversal = None
-            raise
+            with open(filename, mode='r') as f:
+                jGraph = json.load(f)
+        except json.JSONDecodeError as err:
+            raise NodeGraphError("NodeGraph.loadFromFile()", f"Cannot load file, JSON Error: {err}")
+
+        self.loadFromJSON(jGraph)
+        self.genTraversal()
 
     def loadArgs(self, args: Dict[int, Dict[str, any]]):
         for nodeID, arg in args.items():
@@ -140,7 +153,7 @@ class NodeGraph:
 
         self._nodeTypes[nodeType.NODETYPE] = nodeType
 
-    def saveToFile(self, filename: str):
+    def getJSON(self) -> Dict[str, any]:
         # NodeID -> list index
         relativeLookup = {}
 
@@ -175,13 +188,17 @@ class NodeGraph:
             _LINKS: linkJList
         }
 
+        return out
+
+    def saveToFile(self, filename: str):
+        out = self.getJSON()
         with open(filename, mode='w') as f:
             json.dump(out, f, indent=2)
 
     def addNode(self, node: Node):
         if node.nodeID == -1:
             node.nodeID = self._nodeIDGen
-            node.datamap._datamap = self._datamap
+            node.datamap._datamap = self.datamap
             self._nodeIDGen += 1
             self._nodeLookup[node.nodeID] = node
         else:
@@ -259,7 +276,7 @@ class NodeGraph:
         self._nodeLookup.pop(node.nodeID)
 
 
-    def _recurGenTraversal(self, out: deque[Node], curNode: Node, ahead: Set[int], behind: Set[int]):
+    def _recurGenTraversal(self, out: Deque[Node], curNode: Node, ahead: Set[int], behind: Set[int]):
         ahead.add(curNode.nodeID)
 
         for link in curNode:
