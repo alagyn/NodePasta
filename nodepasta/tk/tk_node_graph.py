@@ -189,6 +189,12 @@ class TKNodeGraph(tk.Frame):
 
         self._PIXEL = tk.PhotoImage(width=1, height=1)
 
+        self._descrVar = tk.StringVar()
+        descrFrame = tk.LabelFrame(self, text="Info")
+        descrFrame.grid(row=0, column=1, sticky='nesw')
+
+        tk.Label(descrFrame, textvariable=self._descrVar, anchor='w', justify='left', width=50).grid(row=0, column=0, sticky='nesw')
+
         # Do last?
         if len(self.nodeGraph) > 0:
             self.reloadGraph()
@@ -306,13 +312,15 @@ class TKNodeGraph(tk.Frame):
 
     def _hoverNode(self, _):
         c = self._current()
-        # TODO hover
-        if c in self._canvToNodeRef:
+        try:
+            nodeRef = self._canvToNodeRef[c]
             self._nodeCanvas.itemconfigure(c, outline="white")
+            self._descrVar.set(nodeRef.node.docs())
+        except KeyError:
+            pass
 
     def _unhoverNode(self, _):
         c = self._current()
-        # TODO unhover
         if c in self._canvToNodeRef:
             self._nodeCanvas.itemconfigure(c, outline="black")
 
@@ -749,7 +757,7 @@ class TKNodeGraph(tk.Frame):
 
         sb = tk.Scrollbar(mainDialogFrame, orient=tk.VERTICAL, command=dialogCanvas.yview)
         sb.grid(row=1, column=1, sticky='nse')
-        dialogCanvas.configure(yscrollcommand=sb.set)
+        dialogCanvas.configure(yscrollcommand=sb.set, yscrollincrement=0.5)
 
         dialogFrame = tk.Frame(dialogCanvas)
         for idx, nodeType in enumerate(self.nodeGraph.nodeTypes()):

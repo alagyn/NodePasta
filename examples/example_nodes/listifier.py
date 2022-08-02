@@ -2,11 +2,12 @@ from nodepasta.node import Node, OutPort, InPort
 from nodepasta.argtypes import NodeArg, FLOAT
 
 class ListifierNode(Node):
+    DESCRIPTION = "Takes a variable number of inputs and puts them in a list"
     _INPUTS = [
-        InPort("Inputs", 'float', variable=True, cnt=2)
+        InPort("Inputs", 'float', "The inputs", variable=True, cnt=2)
     ]
     _OUTPUTS = [
-        OutPort("Output", "List[float]")
+        OutPort("Output", "List[float]", "The output list")
     ]
     NODETYPE = "Listifier"
 

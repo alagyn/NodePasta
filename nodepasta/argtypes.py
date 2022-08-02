@@ -8,7 +8,8 @@ ENUM = "__enum"
 BOOL = "__bool"
 
 class NodeArg:
-    def __init__(self, name: str, argType: str, display: str=None, value: any = None):
+    def __init__(self, name: str, argType: str, display: str, descr: str, value: any = None):
+        self.descr = descr
         self.name = name
         self.argType = argType
         self.value = value
@@ -25,12 +26,12 @@ class NodeArg:
 
 
 class EnumNodeArg(NodeArg):
-    def __init__(self, name: str, display: str, value: str, enums: List[str]):
-        super().__init__(name, ENUM, display, value)
+    def __init__(self, name: str, display: str, descr: str, value: str, enums: List[str]):
+        super().__init__(name, ENUM, display, descr, value)
         self.enums = enums
 
     def copy(self) -> 'NodeArg':
-        return EnumNodeArg(self.name, self.display, self.value, self.enums)
+        return EnumNodeArg(self.name, self.display, self.descr, self.value, self.enums)
 
 class NodeArgValue(abc.ABC):
     @abc.abstractmethod

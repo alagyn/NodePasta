@@ -1,7 +1,8 @@
 from nodepasta.node import Node, InPort
 
 class OutputNode(Node):
-    _INPUTS = [InPort("value", allowAny=True)]
+    DESCRIPTION = "Prints out the input to the console"
+    _INPUTS = [InPort("value", None, "The input" ,allowAny=True)]
     NODETYPE = "Output"
 
     def setup(self) -> None:

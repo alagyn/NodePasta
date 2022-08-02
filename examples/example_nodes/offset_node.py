@@ -3,10 +3,11 @@ from nodepasta.argtypes import NodeArg, FLOAT
 
 
 class OffsetNode(Node):
-    _INPUTS = [InPort("value", "float")]
-    _OUTPUTS = [OutPort("output", "float")]
+    DESCRIPTION = "Adds a constant output to the input"
+    _INPUTS = [InPort("value", "float", "The input")]
+    _OUTPUTS = [OutPort("output", "float", "The output")]
     NODETYPE = "Offset"
-    _ARGS = [NodeArg("offset", FLOAT, "Offset", 2)]
+    _ARGS = [NodeArg("offset", FLOAT, "Offset", "The constant offset", 2)]
 
     def __init__(self):
         super(OffsetNode, self).__init__()

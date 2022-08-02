@@ -27,6 +27,7 @@ if __name__ == '__main__':
     ]
 
     for t in nodeTypes:
+        print(f"Registering {t.NODETYPE}")
         ng.registerNodeClass(t)
 
     root = tk.Tk()

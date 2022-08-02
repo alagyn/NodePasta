@@ -1,8 +1,9 @@
 from nodepasta.node import Node, InPort, OutPort
 
 class Power(Node):
-    _INPUTS = [InPort("base", "float"), InPort("power", "float")]
-    _OUTPUTS = [OutPort("value", "float")]
+    DESCRIPTION = "Calculates Exponentials"
+    _INPUTS = [InPort("base", "float", "The base"), InPort("power", "float", "The exponent")]
+    _OUTPUTS = [OutPort("value", "float", "The output")]
     NODETYPE = "Power"
 
     def setup(self) -> None:

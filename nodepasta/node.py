@@ -31,8 +31,9 @@ class Link:
 
 
 class IOPort:
-    def __init__(self, name: str, typeStr: str, variable=False, cnt=1):
+    def __init__(self, name: str, typeStr: str, descr: str, variable=False, cnt=1):
         self.name = name
+        self.descr = descr
         self.typeStr = typeStr
         self.variable = variable
         self.cnt = cnt
@@ -47,8 +48,8 @@ class IOPort:
         raise NotImplementedError
 
 class InPort(IOPort):
-    def __init__(self, name: str, typeStr: Optional[str] = None, allowAny: bool = False, variable=False, cnt=1):
-        super().__init__(name, typeStr, variable, cnt)
+    def __init__(self, name: str, typeStr: Optional[str], descr: str, allowAny: bool = False, variable=False, cnt=1):
+        super().__init__(name, typeStr, descr, variable, cnt)
         self.allowAny = allowAny
         if (typeStr is None or len(typeStr) == 0) and not allowAny:
             raise NodeDefError(f"InPort.init()", f"No Type defined and allowAny=False: {self}")
@@ -105,7 +106,7 @@ class InPort(IOPort):
         self.links[link.addr.inVarIdx] = None
 
     def copy(self):
-        return InPort(self.name, self.typeStr, self.allowAny, self.variable, self.cnt)
+        return InPort(self.name, self.typeStr, self.descr, self.allowAny, self.variable, self.cnt)
 
     def addvarport(self):
         self.cnt += 1
@@ -127,8 +128,8 @@ class InPort(IOPort):
 
 
 class OutPort(IOPort):
-    def __init__(self, name: str, typeStr: str, variable=False, cnt=1):
-        super().__init__(name, typeStr, variable, cnt)
+    def __init__(self, name: str, typeStr: str, descr: str, variable=False, cnt=1):
+        super().__init__(name, typeStr, descr, variable, cnt)
         # Var port -> links
         self.links: List[List[Link]] = [[]] * self.cnt
         self.value: any = None
@@ -167,13 +168,13 @@ class OutPort(IOPort):
 
     def remvarport(self):
         # TOFIX
-        pass
+        raise NotImplementedError
 
     def __iter__(self):
         return _OPortLinkIter(self)
 
     def copy(self):
-        return OutPort(self.name, self.typeStr, self.variable, self.cnt)
+        return OutPort(self.name, self.typeStr, self.descr, self.variable, self.cnt)
 
     def __str__(self):
         return f'OutPort({self.name}, type: {self.typeStr})'
@@ -257,6 +258,10 @@ class Node(ABC):
     _ARGS: List[NodeArg] = []
     NODETYPE = NODE_ERR_CN
 
+    DESCRIPTION: str = "No Description Provided"
+
+    _DOC_CACHE = None
+
     def __init__(self, *, noneCapable: bool = True):
         self.nodeID = -1
 
@@ -310,3 +315,26 @@ class Node(ABC):
 
     def __str__(self):
         return f'{self.__class__.__name__}_{self.nodeID}'
+
+    def docs(self) -> str:
+        if self._DOC_CACHE is None:
+            self._DOC_CACHE = f'{self.NODETYPE}\n' \
+                              f'-------------------------------------------\n' \
+                              f'{self.DESCRIPTION}\n'
+
+            if len(self._ARGS) > 0:
+                self._DOC_CACHE += "\nOptions:\n"
+                for arg in self._ARGS:
+                    self._DOC_CACHE += f'\t{arg.display} [{arg.argType}]: {arg.descr}\n'
+
+            if len(self._INPUTS) > 0:
+                self._DOC_CACHE += "\nInputs:\n"
+                for port in self._INPUTS:
+                    self._DOC_CACHE += f'\t{port.name} [{port.typeStr}]: {port.descr}\n'
+
+            if len(self._OUTPUTS) > 0:
+                self._DOC_CACHE += "\nOutputs:\n"
+                for port in self._OUTPUTS:
+                    self._DOC_CACHE += f'\t{port.name} [{port.typeStr}]: {port.descr}\n'
+
+        return self._DOC_CACHE

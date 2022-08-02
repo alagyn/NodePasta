@@ -5,15 +5,16 @@ from operator import lt, gt
 _TYPE = '_TYPE'
 
 class EnumNode(Node):
+    DESCRIPTION = "Compares two float values (A [operation] B)"
     _INPUTS = [
-        InPort("A", "float"),
-        InPort("B", "float")
+        InPort("A", "float", "The first value"),
+        InPort("B", "float", "The second value")
     ]
     _OUTPUTS = [
-        OutPort("Check", "bool")
+        OutPort("Check", "bool", "The output of the comparison")
     ]
     _ARGS = [
-        EnumNodeArg(_TYPE, "Type", "<", ["<", ">"])
+        EnumNodeArg(_TYPE, "Type", "The comparison operator to use" ,"<", ["<", ">"])
     ]
     NODETYPE = "Compare"
 

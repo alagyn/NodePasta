@@ -2,8 +2,9 @@ from nodepasta.node import Node, InPort, OutPort
 
 
 class SumNode(Node):
-    _INPUTS = [InPort("a", "float"), InPort("b", "float")]
-    _OUTPUTS = [OutPort("value", "float")]
+    DESCRIPTION = "Adds two values together"
+    _INPUTS = [InPort("a", "float", "The first value"), InPort("b", "float", "The second value")]
+    _OUTPUTS = [OutPort("value", "float", "The output")]
     NODETYPE = "Sum"
 
     def __init__(self):

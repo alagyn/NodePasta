@@ -14,8 +14,6 @@ _POS = 'pos'
 _CLASS = 'class'
 _ARGS = 'args'
 
-#TOFIX call setup on nodes
-
 class NodeGraph:
     def __init__(self):
         # NodeID -> Node
