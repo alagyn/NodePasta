@@ -1,11 +1,11 @@
 from typing import List
 import abc
 
-STRING = '__str'
-INT = "__int"
-FLOAT = "__flt"
-ENUM = "__enum"
-BOOL = "__bool"
+STRING = 'String'
+INT = "Int"
+FLOAT = "Float"
+ENUM = "Enum"
+BOOL = "Bool"
 
 class NodeArg:
     def __init__(self, name: str, argType: str, display: str, descr: str, value: any = None):

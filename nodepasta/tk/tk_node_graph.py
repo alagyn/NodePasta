@@ -193,7 +193,8 @@ class TKNodeGraph(tk.Frame):
         descrFrame = tk.LabelFrame(self, text="Info")
         descrFrame.grid(row=0, column=1, sticky='nesw')
 
-        tk.Label(descrFrame, textvariable=self._descrVar, anchor='w', justify='left', width=50).grid(row=0, column=0, sticky='nesw')
+        tk.Label(descrFrame, textvariable=self._descrVar, anchor='w', justify='left', width=50, wraplength=350
+                 ).grid(row=0, column=0, sticky='nesw')
 
         # Do last?
         if len(self.nodeGraph) > 0:
@@ -402,7 +403,7 @@ class TKNodeGraph(tk.Frame):
             portRef2 = varportRef2.parent
 
             # TODO remove?
-            self.setInfoMessage(f'{portRef1} -> {portRef2}')
+            self.setInfoMessage(f'{varportRef1} -> {varportRef2}')
 
             if c != self._curPortID and portRef1.io != portRef2.io:
 
@@ -566,7 +567,7 @@ class TKNodeGraph(tk.Frame):
             vp = []
             portRef = _PortRef(nodeRef, p, idx, portDir, p.typeStr)
             pcount += 1
-            for varIdx in range(p.cnt):
+            for varIdx in range(p.numlinks()):
                 varPortRef = _VarPortRef(varIdx, portRef)
                 self._makeNewVarPort(varPortRef)
                 vp.append(varPortRef)
@@ -585,7 +586,7 @@ class TKNodeGraph(tk.Frame):
         if not portref.port.variable:
             raise NodeGraphError("TKNodeGraph._addVarPort()", "DEV: Cannot add varport to non variable port")
 
-        varPortRef = _VarPortRef(portref.port.cnt, portref)
+        varPortRef = _VarPortRef(portref.port.numlinks(), portref)
         portref.port.addvarport()
         portref.nodeRef.numPorts += 1
         portref.varPorts.append(varPortRef)
@@ -595,7 +596,7 @@ class TKNodeGraph(tk.Frame):
     def _remVarPort(self, portref: _PortRef):
         if not portref.port.variable:
             raise NodeGraphError("TKNodeGraph._remVarPort()", "DEV: Cannot rem varport on non variable port")
-        if portref.port.cnt > 1:
+        if portref.port.numlinks() > 1:
             for link in portref.varPorts[-1].links:
                 if link is not None:
                     self._removeLink(link)

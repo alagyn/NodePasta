@@ -4,7 +4,7 @@ from nodepasta.argtypes import NodeArg, FLOAT
 class ListifierNode(Node):
     DESCRIPTION = "Takes a variable number of inputs and puts them in a list"
     _INPUTS = [
-        InPort("Inputs", 'float', "The inputs", variable=True, cnt=2)
+        InPort("Inputs", 'float', "The inputs", variable=True)
     ]
     _OUTPUTS = [
         OutPort("Output", "List[float]", "The output list")
