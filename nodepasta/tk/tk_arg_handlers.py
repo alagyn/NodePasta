@@ -46,7 +46,8 @@ class TKVarArg(NodeArgValue):
 class TKStringArgHandler(TKArgHandler):
     @classmethod
     def draw(cls, frame: tk.Frame, arg: NodeArg) -> NodeArgValue:
-        tk.Label(frame, text=f'{arg.display}:').grid(row=0, column=0, sticky='nesw')
+        tk.Label(frame, text=f'{arg.display}:').grid(
+            row=0, column=0, sticky='nesw')
         var = tk.StringVar(value=arg.value if arg.value is not None else "")
         tk.Entry(frame, textvariable=var).grid(row=0, column=1, sticky='nesw')
         return TKVarArg(var, arg)
@@ -57,9 +58,11 @@ class TKIntArgHandler(TKArgHandler):
     @classmethod
     def draw(cls, frame: tk.Frame, arg: NodeArg) -> NodeArgValue:
         # TODO force int
-        tk.Label(frame, text=f'{arg.display}:').grid(row=0, column=0, sticky='nesw')
-        var = tk.IntVar(value=arg.value if arg.value is not None else 0)
-        tk.Spinbox(frame, textvariable=var, increment=1, width=5).grid(row=0, column=1, sticky='nesw')
+        tk.Label(frame, text=f'{arg.display}:').grid(
+            row=0, column=0, sticky='nesw')
+        var = tk.IntVar(value=int(arg.value) if arg.value is not None else 0)
+        tk.Spinbox(frame, textvariable=var, increment=1,
+                   width=5).grid(row=0, column=1, sticky='nesw')
         return TKVarArg(var, arg)
 
 
@@ -67,9 +70,12 @@ class TKIntArgHandler(TKArgHandler):
 class TKFloatArgHandler(TKArgHandler):
     @classmethod
     def draw(cls, frame: tk.Frame, arg: NodeArg) -> NodeArgValue:
-        tk.Label(frame, text=f"{arg.display}:").grid(row=0, column=0, sticky='nesw')
-        var = tk.DoubleVar(value=arg.value if arg.value is not None else 0)
-        tk.Spinbox(frame, textvariable=var, increment=1, width=5).grid(row=0, column=1, sticky='nesw')
+        tk.Label(frame, text=f"{arg.display}:").grid(
+            row=0, column=0, sticky='nesw')
+        var = tk.DoubleVar(value=float(arg.value)
+                           if arg.value is not None else 0)
+        tk.Spinbox(frame, textvariable=var, increment=1,
+                   width=5).grid(row=0, column=1, sticky='nesw')
         return TKVarArg(var, arg)
 
 
@@ -86,7 +92,8 @@ class TKBoolArgHandler(TKArgHandler):
 class TKEnumArgHandler(TKArgHandler):
     @classmethod
     def draw(cls, frame: tk.Frame, arg: EnumNodeArg) -> NodeArgValue:
-        tk.Label(frame, text=f"{arg.display}:").grid(row=0, column=0, sticky='nesw')
+        tk.Label(frame, text=f"{arg.display}:").grid(
+            row=0, column=0, sticky='nesw')
         var = tk.StringVar(value=arg.value if arg.value is not None else "")
         ttk.Combobox(frame, textvariable=var, values=arg.enums, state='readonly',
                      width=10
@@ -98,8 +105,10 @@ class TKEnumArgHandler(TKArgHandler):
 class TKNotFoundHandler(TKArgHandler):
     @classmethod
     def draw(cls, frame: tk.Frame, arg: NodeArg) -> NodeArgValue:
-        tk.Label(frame, text=f"Arg: {arg.display}, Type: {arg.argType}").grid(row=0, column=0, sticky='nesw')
-        tk.Label(frame, text=f"Type Handler not found").grid(row=1, column=0, sticky='nesw')
+        tk.Label(frame, text=f"Arg: {arg.display}, Type: {arg.argType}").grid(
+            row=0, column=0, sticky='nesw')
+        tk.Label(frame, text=f"Type Handler not found").grid(
+            row=1, column=0, sticky='nesw')
         var = tk.Variable(value=arg.value)
         return TKVarArg(var, arg)
 
