@@ -1,0 +1,9 @@
+[submodule "ImPasta/third-party/imgui"]
+	path = ImPasta/third-party/imgui
+	url = git@github.com:ocornut/imgui.git
+[submodule "ImPasta/third-party/imgui-node-editor"]
+	path = ImPasta/third-party/imgui-node-editor
+	url = git@github.com:thedmd/imgui-node-editor.git
+[submodule "ImPasta/third-party/glfw"]
+	path = ImPasta/third-party/glfw
+	url = git@github.com:glfw/glfw.git
