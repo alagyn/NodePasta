@@ -2,4 +2,5 @@
     "cmake.sourceDirectory": "${workspaceFolder}/ImPasta",
     "cmake.buildDirectory": "${workspaceFolder}/ImPasta/build",
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "python.analysis.typeCheckingMode": "basic",
 }

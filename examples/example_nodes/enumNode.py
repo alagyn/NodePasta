@@ -1,6 +1,5 @@
 from nodepasta.node import Node, Port
 from nodepasta.argtypes import EnumNodeArg, FLOAT, BOOL
-
 from operator import lt, gt
 
 _TYPE = '_TYPE'
@@ -12,11 +11,11 @@ class EnumNode(Node):
         Port("A", FLOAT, "The first value"),
         Port("B", FLOAT, "The second value")
     ]
-    _OUTPUTS = [
-        Port("Check", BOOL, "The output of the comparison")
-    ]
+    _OUTPUTS = [Port("Check", BOOL, "The output of the comparison")]
     _ARGS = [
-        EnumNodeArg(_TYPE, "Type", "The comparison operator to use", "<", ["<", ">"])
+        EnumNodeArg(
+            _TYPE, "Type", "The comparison operator to use", "<", ["<", ">"]
+        )
     ]
     NODETYPE = "Compare"
 

@@ -6,6 +6,7 @@ from nodepasta.nodegraph import NodeGraph
 from .example_nodes import const_source, power_node, output_node, sum_node, offset_node, listifier, enumNode
 from nodepasta.errors import NodeGraphError
 from nodepasta.tk.tk_node_graph import TKNodeGraph
+from nodepasta.argtypes import FLOAT, INT, BOOL
 
 if __name__ == '__main__':
     filename = ''
@@ -42,14 +43,16 @@ if __name__ == '__main__':
     f.rowconfigure(0, weight=1)
 
     ngFrame = TKNodeGraph(f, ng)
-    ngFrame.setPortTypeColor("float", "lightgreen")
-    ngFrame.setPortTypeColor('int', "brown")
+    ngFrame.setPortTypeColor(FLOAT, "lightgreen")
+    ngFrame.setPortTypeColor(INT, "brown")
+    ngFrame.setPortTypeColor(BOOL, "blue")
 
     def reload():
         try:
-            ng.loadFromFile(filename)
-            ngFrame.reset()
-            ngFrame.reloadGraph()
+            if os.path.exists(filename):
+                ng.loadFromFile(filename)
+                ngFrame.reset()
+                ngFrame.reloadGraph()
         except NodeGraphError as err:
             print("ERROR:", str(err))
             exit()
@@ -65,7 +68,7 @@ if __name__ == '__main__':
             # the internal state of your nodes
             ng.setupNodes()
             print(ng.str_traversal())
-            print("-------------------")
+            print("------------------- Executing --------------")
             ng.execute()
         except NodeGraphError as e:
             # Set an error message in the info box
@@ -78,9 +81,21 @@ if __name__ == '__main__':
         print(f"Saving to {filename}")
         ng.saveToFile(filename)
 
-    tk.Button(btnFrame, text="Execute", command=execute).grid(row=0, column=0, sticky='w')
-    tk.Button(btnFrame, text="Reload", command=reload).grid(row=0, column=1, sticky='w')
-    tk.Button(btnFrame, text='Save', command=save).grid(row=0, column=2, stick='w')
+    tk.Button(
+        btnFrame, text="Execute", command=execute
+    ).grid(
+        row=0, column=0, sticky='w'
+    )
+    tk.Button(
+        btnFrame, text="Reload", command=reload
+    ).grid(
+        row=0, column=1, sticky='w'
+    )
+    tk.Button(
+        btnFrame, text='Save', command=save
+    ).grid(
+        row=0, column=2, stick='w'
+    )
 
     root.state('zoomed')
 

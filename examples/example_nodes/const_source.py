@@ -4,7 +4,11 @@ from nodepasta.node import Node, Port
 
 class ConstSource(Node):
     _OUTPUTS = [Port("value", FLOAT, "The output")]
-    _ARGS = [NodeArg("value", FLOAT, value=2, display='Value', descr="The output value")]
+    _ARGS = [
+        NodeArg(
+            "value", FLOAT, value=2, display='Value', descr="The output value"
+        )
+    ]
     NODETYPE = "Source"
     DESCRIPTION = "Outputs a constant value"
 

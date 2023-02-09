@@ -8,6 +8,7 @@ import tkinter as tk
 
 if __name__ == '__main__':
     # TOFIX update
+    """
     ng = NodeGraph()
 
     src1 = const_source.ConstSource(10)
@@ -56,3 +57,4 @@ if __name__ == '__main__':
     ngFrame.grid(row=0, column=0, sticky='nesw')
 
     root.mainloop()
+    """
