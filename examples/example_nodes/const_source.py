@@ -3,7 +3,7 @@ from nodepasta.node import Node, Port
 
 
 class ConstSource(Node):
-    _OUTPUTS = [Port("value", "float", "The output")]
+    _OUTPUTS = [Port("value", FLOAT, "The output")]
     _ARGS = [NodeArg("value", FLOAT, value=2, display='Value', descr="The output value")]
     NODETYPE = "Source"
     DESCRIPTION = "Outputs a constant value"
@@ -12,7 +12,7 @@ class ConstSource(Node):
         self.v = self.args['value']
 
     def setup(self) -> None:
-        pass
+        self.v = self.args['value']
 
     def execute(self) -> None:
         self.outputs[0].value(self.v.value)

@@ -1,13 +1,11 @@
 from nodepasta.node import Node, Port
+from nodepasta.argtypes import FLOAT
 
 
 class Power(Node):
     DESCRIPTION = "Calculates Exponentials"
-    _INPUTS = [
-        Port("base", "float", "The base"),
-        Port("power", "float", "The exponent")
-    ]
-    _OUTPUTS = [Port("value", "float", "The output")]
+    _INPUTS = [Port("base", FLOAT, "The base"), Port("power", FLOAT, "The exponent")]
+    _OUTPUTS = [Port("value", FLOAT, "The output")]
     NODETYPE = "Power"
 
     def init(self) -> None:

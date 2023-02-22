@@ -1,13 +1,11 @@
 from nodepasta.node import Node, Port
+from nodepasta.argtypes import FLOAT
 
 
 class SumNode(Node):
     DESCRIPTION = "Adds two values together"
-    _INPUTS = [
-        Port("a", "float", "The first value"),
-        Port("b", "float", "The second value")
-    ]
-    _OUTPUTS = [Port("value", "float", "The output")]
+    _INPUTS = [Port("a", FLOAT, "The first value"), Port("b", FLOAT, "The second value")]
+    _OUTPUTS = [Port("value", FLOAT, "The output")]
     NODETYPE = "Sum"
 
     def init(self):

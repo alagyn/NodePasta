@@ -4,16 +4,16 @@ from nodepasta.argtypes import NodeArg, FLOAT
 
 class OffsetNode(Node):
     DESCRIPTION = "Adds a constant output to the input"
-    _INPUTS = [Port("value", "float", "The input")]
-    _OUTPUTS = [Port("output", "float", "The output")]
+    _INPUTS = [Port("value", FLOAT, "The input")]
+    _OUTPUTS = [Port("output", FLOAT, "The output")]
     NODETYPE = "Offset"
     _ARGS = [NodeArg("offset", FLOAT, "Offset", "The constant offset", 2)]
 
     def init(self):
-        self.offset = self.args['offset']
+        pass
 
     def setup(self) -> None:
-        pass
+        self.offset = self.args['offset']
 
     def execute(self) -> None:
         v = self.inputs[0].value()
