@@ -10,5 +10,9 @@ namespace BDD {
     public:
         py::object graph;
         NodeGraph(py::object);
+
+        py::object getLink(int parentPortID, int childPortID);
+        void makeLink(int parentPortID, int childPortID);
+        void remLink(int linkID);
     };
 } //namespace BDD

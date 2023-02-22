@@ -20,6 +20,9 @@ namespace BDD {
 
     bool gui_init()
     {
+        // TODO log levels?
+        std::cout << "Initializing GLFW\n";
+
         // Setup window
         glfwSetErrorCallback(glfw_error_callback);
         if(!glfwInit())
@@ -33,6 +36,8 @@ namespace BDD {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
+        std::cout << "Creating Window\n";
+
         // Create window with graphics context
         window = glfwCreateWindow(480, 480, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
         if(window == NULL)
@@ -42,6 +47,8 @@ namespace BDD {
         }
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1); // Enable vsync
+
+        std::cout << "Init ImGUI\n";
 
         // Setup Dear ImGui context
         IMGUI_CHECKVERSION();
@@ -59,10 +66,21 @@ namespace BDD {
         ImGui::StyleColorsDark();
 
         // Setup Platform/Renderer backends
-        ImGui_ImplGlfw_InitForOpenGL(window, true);
-        ImGui_ImplOpenGL3_Init(glsl_version);
+        if(!ImGui_ImplGlfw_InitForOpenGL(window, true))
+        {
+            std::cout << "Cannot init GLFW for OpenGL\n";
+            exit(1);
+        }
+
+        if(!ImGui_ImplOpenGL3_Init(glsl_version))
+        {
+            std::cout << "Cannot init OpenGL\n";
+            exit(1);
+        }
 
         ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
+
+        std::cout << "Done Init\n";
 
         return true;
     }
@@ -81,10 +99,10 @@ namespace BDD {
 
     void gui_run(RenderFunc func)
     {
+        std::cout << "Starting GUI Mainloop\n";
         while(true)
         {
             glfwPollEvents();
-
             // Start the Dear ImGui frame
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();

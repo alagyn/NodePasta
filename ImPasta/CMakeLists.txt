@@ -37,7 +37,7 @@ add_library(${PROJECT_NAME} MODULE ${${PROJECT_NAME}_SRCS})
 
 target_link_libraries(
     ${PROJECT_NAME}
-    PRIVATE
+    PUBLIC
     Boost::system
     Boost::filesystem
     Boost::python311
