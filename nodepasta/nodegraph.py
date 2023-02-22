@@ -1,11 +1,13 @@
 from collections import deque
-from typing import Dict, List, Set, Iterator, Tuple, Optional, Type, Deque
+from typing import Dict, List, Set, Iterator, Tuple, Optional, Type, Deque, Any
 
 import json
 
-from .node import Node, Link, NODE_ERR_CN, LinkAddr
+from .node import Node, Link, NODE_ERR_CN
 from .errors import ExecutionError, NodeGraphError, NodeDefError, NodeTypeError
 from .utils import Vec
+from .ports import IOPort
+from .id_manager import IDManager
 
 _NODES = 'nodes'
 _LINKS = 'links'
@@ -13,20 +15,25 @@ _POS = 'pos'
 
 _CLASS = 'class'
 _ARGS = 'args'
+_IN_VAR_PORTS = 'inVarPorts'
+_OUT_VAR_PORTS = 'outVarPorts'
+
 
 class NodeGraph:
     def __init__(self):
         # NodeID -> Node
         self._nodeLookup: Dict[int, Node] = {}
-        # noinspection PyTypeChecker
-        self._traversal: List[Node] = None
+        self._portLookup: Dict[int, IOPort] = {}
+        self._linkIDLookup: Dict[int, Link] = {}
+        self._linkLookup: Dict[Tuple[int, int], Link] = {}
+
+        self._traversal: Optional[List[Node]] = None
 
         self._nodeTypes: Dict[str, Type[Node]] = {}
         self._filename = ""
-        self._nodeIDGen = 0
-        self._linkIDGen = 0
+        self._idManager = IDManager()
 
-        self.datamap: Dict[str, any] = {}
+        self.datamap: Dict[str, Any] = {}
 
     def __len__(self) -> int:
         return len(self._nodeLookup)
@@ -48,23 +55,30 @@ class NodeGraph:
             raise NodeGraphError("NodeGraph.loadFromFile()", f"No nodes defined in file")
 
         if _LINKS not in jGraph:
-            raise NodeGraphError("NodeGraph.loadFromFile()", f"Cannot load file, links not defined ")
+            raise NodeGraphError("NodeGraph.loadFromFile()",
+                                 f"Cannot load file, links not defined ")
 
         for idx, n in enumerate(jGraph[_NODES]):
             try:
                 nodeClass = n[_CLASS]
             except KeyError:
-                raise NodeGraphError("NodeGraph.loadFromFile()", f"Node #{idx}, no class was defined")
+                raise NodeGraphError("NodeGraph.loadFromFile()",
+                                     f"Node #{idx}, no class was defined")
 
             try:
                 args = n[_ARGS]
             except KeyError:
-                raise NodeGraphError("NodeGraph.loadFromFile()", f"Node #{idx}, no args were defined")
+                raise NodeGraphError("NodeGraph.loadFromFile()",
+                                     f"Node #{idx}, no args were defined")
 
             try:
                 pos = n[_POS]
+                if len(pos) != 2:
+                    raise NodeGraphError(f'NodeGraph.loadFromFile()',
+                                         f'Node #{idx}, invalid pos length')
             except KeyError:
-                raise NodeGraphError(f"NodeGraph.loadFromFile()", f"Node #{idx}, no pos was defined")
+                raise NodeGraphError(f"NodeGraph.loadFromFile()",
+                                     f"Node #{idx}, no pos was defined")
 
             try:
                 nodeType = self._nodeTypes[nodeClass]
@@ -72,28 +86,34 @@ class NodeGraph:
                 raise NodeGraphError(f'NodeGraph.loadFromFile()',
                                      f'Node #{idx}, class type "{nodeClass}" not registered')
 
-            if len(pos) != 2:
-                raise NodeGraphError(f'NodeGraph.loadFromFile()', f'Node #{idx}, invalid pos length')
+            try:
+                inVarPorts = n[_IN_VAR_PORTS]
+            except KeyError:
+                raise NodeGraphError(f"NodeGraph.loadFromFile()",
+                                     f"Node #{idx}, varPorts field missing")
+
+            try:
+                outVarPorts = n[_OUT_VAR_PORTS]
+            except KeyError:
+                raise NodeGraphError(f"NodeGraph.loadFromFile()",
+                                     f"Node #{idx}, varPorts field missing")
 
             newNode = nodeType()
+            newNode._init(self._idManager, inVarPorts, outVarPorts)
             newNode.loadArgs(args)
             newNode.pos = Vec(pos[0], pos[1])
             nodeList.append(newNode)
-            self.addNode(newNode)
+            self._addNode(newNode)
 
         for idx, link in enumerate(jGraph[_LINKS]):
-            if len(link) != 6:
+            if len(link) != 2:
                 raise NodeGraphError(f'NodeGraph.loadFromFile()', f'Link #{idx}, invalid length')
-            parent = nodeList[link[0]]
-            outIdx = link[1]
-            outVarIdx = link[2]
-            child = nodeList[link[3]]
-            inIdx = link[4]
-            inVarIdx = link[5]
+            pPortId = link[0]
+            cPortId = link[1]
+            pPort = self._portLookup[pPortId]
+            cPort = self._portLookup[cPortId]
 
-            addr = LinkAddr(outIdx, outVarIdx, inIdx, inVarIdx)
-
-            self.makeLink(parent, child, addr)
+            self.makeLink(pPort, cPort)
 
     def loadFromJSON(self, jGraph):
         """
@@ -128,18 +148,20 @@ class NodeGraph:
         self.loadFromJSON(jGraph)
         self.genTraversal()
 
-    def loadArgs(self, args: Dict[int, Dict[str, any]]):
+    def loadArgs(self, args: Dict[int, Dict[str, Any]]):
         for nodeID, arg in args.items():
             try:
                 node = self._nodeLookup[nodeID]
             except KeyError:
-                raise NodeGraphError('NodeGraph.loadArgs()', f"Cannot load args for node ID: {nodeID}. ID not in graph")
+                raise NodeGraphError('NodeGraph.loadArgs()',
+                                     f"Cannot load args for node ID: {nodeID}. ID not in graph")
 
             node.loadArgs(arg)
 
     def registerNodeClass(self, nodeType: Type[Node]):
         if nodeType.NODETYPE == NODE_ERR_CN:
-            raise NodeDefError(f"Node.init()", f"Node class {nodeType.__name__}, NODETYPE class variable not set")
+            raise NodeDefError(
+                f"Node.init()", f"Node class {nodeType.__name__}, NODETYPE class variable not set")
         try:
             x = self._nodeTypes[nodeType.NODETYPE]
             if x != nodeType:
@@ -151,16 +173,20 @@ class NodeGraph:
 
         self._nodeTypes[nodeType.NODETYPE] = nodeType
 
-    def getJSON(self) -> Dict[str, any]:
-        # NodeID -> list index
-        relativeLookup = {}
+    def getJSON(self) -> Dict[str, Any]:
+        nodeList: List[Node] = [None] * len(self._nodeLookup)  # type: ignore
 
-        # noinspection PyTypeChecker
-        nodeList: List[Node] = [None] * len(self._nodeLookup)
+        # Node IDs don't matter and can be regenerated when the graph is reloaded
+        # Port IDs however need to be rebased to zero and need to be constructed in
+        # the exact same order every time
+        rebasePortLookup = {}
 
         for idx, node in enumerate(self._nodeLookup.values()):
-            relativeLookup[node.nodeID] = idx
             nodeList[idx] = node
+            for ip in node.getInputPorts():
+                rebasePortLookup[ip.portID] = len(rebasePortLookup)
+            for op in node.getOutputPorts():
+                rebasePortLookup[op.portID] = len(rebasePortLookup)
 
         nodeJList = []
         linkJList = []
@@ -170,15 +196,14 @@ class NodeGraph:
             nodeJList.append({
                 _CLASS: node.NODETYPE,
                 _ARGS: node.unloadArgs(),
-                _POS: [node.pos.x, node.pos.y]
+                _POS: [node.pos.x, node.pos.y],
+                _IN_VAR_PORTS: [len(x.getPorts()) for x in node.inputs],
+                _OUT_VAR_PORTS: [len(x.getPorts()) for x in node.outputs]
             })
 
             for link in node:
-                parentIdx = relativeLookup[link.parent.nodeID]
-                childIdx = relativeLookup[link.child.nodeID]
                 linkJList.append(
-                    [parentIdx, link.addr.outIdx, link.addr.outVarIdx,
-                     childIdx, link.addr.inIdx, link.addr.inVarIdx]
+                    [rebasePortLookup[link.pPort.portID], rebasePortLookup[link.cPort.portID]]
                 )
 
         out = {
@@ -193,18 +218,36 @@ class NodeGraph:
         with open(filename, mode='w') as f:
             json.dump(out, f, indent=2)
 
-    def addNode(self, node: Node):
+    def _addNode(self, node: Node):
         if node.nodeID == -1:
-            node.nodeID = self._nodeIDGen
-            node.datamap._datamap = self.datamap
-            self._nodeIDGen += 1
+            node.nodeID = self._idManager.newNode()
+            node.datamap._datamap = self.datamap  # type: ignore
             self._nodeLookup[node.nodeID] = node
+            self._portLookup.update({
+                x.portID: x for x in node.getInputPorts()
+            })
+            self._portLookup.update({
+                x.portID: x for x in node.getOutputPorts()
+            })
         else:
             raise NodeGraphError('NodeGraph.addNodes()',
                                  f"Cannot add node {node}, it already belongs to a node graph")
         self._traversal = None
 
-    def makeLink(self, parent: Node, child: Node, addr: LinkAddr) -> Tuple[Link, Optional[Link]]:
+    def addNode(self, nodetype: Type[Node]) -> Node:
+        node = nodetype()
+        node._init(self._idManager)
+        self._addNode(node)
+        return node
+
+    def makeLinkByID(self, pPortID: int, cPortID: int):
+        print(f"Linking {pPortID} -> {cPortID}")
+        pPort = self._portLookup[pPortID]
+        cPort = self._portLookup[cPortID]
+        link, _ = self.makeLink(pPort, cPort)
+        print(f'Linked: {link.linkID}')
+
+    def makeLink(self, pPort: IOPort, cPort: IOPort) -> Tuple[Link, Optional[Link]]:
         """
         Makes a new link.
         :param parent: The parent node
@@ -212,57 +255,58 @@ class NodeGraph:
         :param addr: The address of the ports
         :return: The new link and an old link that was replaced, if it exists, else None
         """
-        if parent.nodeID not in self._nodeLookup:
+        if pPort.node.nodeID not in self._nodeLookup:
             raise NodeGraphError(f'NodeGraph.makeLink()', f'Cannot make link, '
-                                                          f'parent not in this graph: "{str(parent)}"')
-        if child.nodeID not in self._nodeLookup:
+                                                          f'parent not in this graph: "{str(pPort.node)}"')
+        if cPort.node.nodeID not in self._nodeLookup:
             raise NodeGraphError(f'NodeGraph.makeLink()', f'Cannot make link, '
-                                                          f'child not in this graph: "{str(child)}"')
-        if parent.nodeID == child.nodeID:
+                                                          f'child not in this graph: "{str(cPort.node)}"')
+        if cPort.node.nodeID == pPort.node.nodeID:
             raise NodeGraphError('NodeGraph.makeLink()',
-                                 f'Cannot make link, parent == child: {parent} == {child}')
-        if not 0 <= addr.outIdx < len(parent.outputs):
-            raise IndexError("NodeGraph.makeLink()", f"{parent} -> {child}: Invalid output idx: {addr.outIdx}")
-        if not 0 <= addr.inIdx < len(child.inputs):
-            raise IndexError("NodeGraph.makeLink()", f"{parent} -> {child}: Invalid input idx: {addr.inIdx}")
+                                 f'Cannot make link, parent == child: {pPort.node} == {cPort.node}')
 
         # Check the typing on the inport
-        inPort = child.inputs[addr.inIdx]
-        if not inPort.allowAny and parent.outputs[addr.outIdx].typeStr != inPort.typeStr:
+        if not cPort.allowAny and pPort.port.typeStr != cPort.port.typeStr:
             raise NodeTypeError(
-                f"Node.addChild()", f"{parent} -> {child}: Invalid type, expected {inPort.typeStr},"
-                                    f" got {parent.outputs[addr.outIdx].typeStr}")
+                f"Node.addChild()", f"{pPort.node} -> {cPort.node}: Invalid type, expected {cPort.port.typeStr},"
+                                    f" got {pPort.port.typeStr}")
 
         # Make new link
-        link = Link(self._linkIDGen, parent, child, addr)
-        self._linkIDGen += 1
-        # Set link in parent
-        parent.outputs[addr.outIdx].addLink(link)
+        linkID = self._idManager.newLink()
+        link = Link(linkID, pPort, cPort)
 
-        # Set link in child
-        old = child.inputs[addr.inIdx].addLink(link)
+        pPort.setLink(link)
+        old = cPort.setLink(link)
+
         # Check for old link
         if old is not None:
             # Remove if present
-            old.parent.outputs[old.addr.outIdx].remLink(old)
+            old.pPort.remLink(old)
 
+        self._linkLookup[(pPort.portID, cPort.portID)] = link
+        self._linkIDLookup[link.linkID] = link
         # Reset the traversal
         self._traversal = None
         return link, old
 
-    # noinspection PyProtectedMember
     def unlink(self, link: Link):
         """
         Removes a link
         :param link: The link to remove
         :return: None
         """
-        link.parent.outputs[link.addr.outIdx].remLink(link)
-        link.child.inputs[link.addr.inIdx].remLink(link)
+        link.pPort.remLink(link)
+        link.cPort.remLink(link)
+        del link
 
         self._traversal = None
 
-    # noinspection PyProtectedMember
+    def unlinkByID(self, linkID: int):
+        print(f"Unlinking {linkID}")
+        link = self._linkIDLookup[linkID]
+
+        self.unlink(link)
+
     def removeNode(self, node: Node):
         for link in node:
             self.unlink(link)
@@ -273,20 +317,19 @@ class NodeGraph:
 
         self._nodeLookup.pop(node.nodeID)
 
-
     def _recurGenTraversal(self, out: Deque[Node], curNode: Node, ahead: Set[int], behind: Set[int]):
         ahead.add(curNode.nodeID)
 
         for link in curNode:
-            childID = link.child.nodeID
+            childID = link.cPort.node.nodeID
             if childID in ahead:
                 raise ExecutionError('NodeGraph._recurGenTraversal()',
-                                     f"Circular Dependancy Detected, Parent: {curNode}, Child: {link.child}")
+                                     f"Circular Dependancy Detected, Parent: {curNode}, Child: {link.cPort.node}")
             if childID in behind:
                 # Skip if already behind
                 continue
 
-            node = link.child
+            node = link.cPort.node
             self._recurGenTraversal(out, node, ahead, behind)
 
         ahead.remove(curNode.nodeID)
@@ -311,11 +354,20 @@ class NodeGraph:
                 continue
             self._recurGenTraversal(newQ, curItem, ahead, behind)
 
-        self._traversal: List[Node] = list(newQ)
+        self._traversal = list(newQ)
 
     def execute(self):
         if self._traversal is None:
             self.genTraversal()
+
+        if self._traversal is None:
+            return
+
+        # TODO REMOVE
+        print("TRAVERSAL")
+        for x in self._traversal:
+            print(x)
+        print("-------------------")
 
         # Reset input ports to None or []
         for n in self._nodeLookup.values():
@@ -323,3 +375,6 @@ class NodeGraph:
 
         for n in self._traversal:
             n.execute()
+
+    def getLinkByPortID(self, pPortID: int, cPortID: int):
+        return self._linkLookup[(pPortID, cPortID)]

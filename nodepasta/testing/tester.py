@@ -1,6 +1,50 @@
-from typing import List, Dict
+from typing import List, Dict, Any, Union
 
-from nodepasta.node import Node, InPort, OutPort, Link, LinkAddr, IOPort
+from nodepasta.node import Node, Link
+from nodepasta.ports import IOPort, InPort, OutPort
+from nodepasta.errors import NodeDefError
+
+
+class DummyLink:
+    def __init__(self, port: IOPort) -> None:
+        self.port = port
+        port.setLink(self)  # type: ignore
+        self.value = None
+
+    def setValue(self, value: Any):
+        self.value = value
+
+    def getValue(self) -> Any:
+        return self.value
+
+
+class DummyVarLink:
+    def __init__(self, port: IOPort) -> None:
+        if not port.port.variable:
+            raise NodeDefError("DummyVarLink.init()", "Port not variable")
+
+        self.dummyLinks: List[DummyLink] = []
+
+        for varport in port.getPorts():
+            dl = DummyLink(varport)
+            self.dummyLinks.append(dl)
+
+    def setValue(self, value: List[Any]):
+        if len(value) != len(self.dummyLinks):
+            raise NodeDefError("DummyVarLink.setValue()",
+                               f"Expected {len(self.dummyLinks)} values, got {len(value)}")
+
+        for dl, val in zip(self.dummyLinks, value):
+            dl.setValue(val)
+
+    def getValue(self) -> List[Any]:
+        return [x.getValue() for x in self.dummyLinks]
+
+
+def makeDummyLink(port: IOPort) -> Union[DummyLink, DummyVarLink]:
+    if port.port.variable:
+        return DummyVarLink(port)
+    return DummyLink(port)
 
 
 class Tester:
@@ -16,31 +60,14 @@ class Tester:
 
         self._node = node
 
-        def _linkup(portList: List[IOPort], linkDict: Dict[str, List[Link]], portDict: Dict[str, IOPort]):
-            for portIdx, port in enumerate(portList):
-                links = []
-                for varportIdx, _ in enumerate(port.links):
-                    addr = LinkAddr(0, 0, portIdx, varportIdx)
-                    # noinspection PyTypeChecker
-                    link = Link(0, None, node, addr)
-                    port.addLink(link)
-                    links.append(link)
-                if port.name in linkDict:
-                    raise RuntimeError(
-                        f"Cannot Test node, two ports have the same name {port}, {port.name}")
-                linkDict[port.name] = links
-                portDict[port.name] = port
+        self._inLinks: Dict[str, Union[DummyLink, DummyVarLink]] = {
+            port.port.name: makeDummyLink(port) for port in node.getInputPorts()
+        }
+        self._outLinks: Dict[str, Union[DummyLink, DummyVarLink]] = {
+            port.port.name: makeDummyLink(port) for port in node.getOutputPorts()
+        }
 
-        self._toNode: Dict[str, List[Link]] = {}
-        self._fromNode: Dict[str, List[Link]] = {}
-
-        self._inPortLookup: Dict[str, InPort] = {}
-        self._outPortLookup: Dict[str, OutPort] = {}
-
-        _linkup(node.inputs, self._toNode, self._inPortLookup)
-        _linkup(node.outputs, self._fromNode, self._outPortLookup)
-
-    def test(self, inputs: Dict[str, any]) -> Dict[str, any]:
+    def test(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
         Set the node's inputs to the passed values then execute and return
         the node's outputs
@@ -49,23 +76,13 @@ class Tester:
         :return: A Dict of outPortName to value
         """
         for key, value in inputs.items():
-            if self._inPortLookup[key].variable:
-                for link, x in zip(self._toNode[key], value):
-                    link.value = x
-            else:
-                self._toNode[key][0].value = value
+            self._inLinks[key].setValue(value)
 
         self._node.execute()
 
         out = {}
 
-        for key, linkList in self._fromNode.items():
-            if self._outPortLookup[key].variable:
-                outlist = []
-                for link in linkList:
-                    outlist.append(link.value)
-                out[key] = outlist
-            else:
-                out[key] = linkList[0].value
+        for key, link in self._outLinks.items():
+            out[key] = link.getValue()
 
         return out

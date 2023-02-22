@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 import abc
+from typing import Any
+
 from nodepasta.argtypes import NodeArg, NodeArgValue, EnumNodeArg
 from nodepasta.argtypes import STRING, INT, FLOAT, ENUM, BOOL
 
@@ -35,7 +37,7 @@ class TKVarArg(NodeArgValue):
         except tk.TclError:
             pass
 
-    def get(self) -> any:
+    def get(self) -> Any:
         return self.var.get()
 
     def reload(self):

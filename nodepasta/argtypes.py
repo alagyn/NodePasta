@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Any
 import abc
 
 STRING = 'String'
@@ -6,10 +6,11 @@ INT = "Int"
 FLOAT = "Float"
 ENUM = "Enum"
 BOOL = "Bool"
+ANY = "ANY"
 
 
 class NodeArg:
-    def __init__(self, name: str, argType: str, display: str, descr: str, value: any = None):
+    def __init__(self, name: str, argType: str, display: str, descr: str, value: Any = None):
         self.descr = descr
         self.name = name
         self.argType = argType
@@ -19,10 +20,10 @@ class NodeArg:
     def copy(self) -> 'NodeArg':
         return NodeArg(self.name, self.argType, self.display, self.descr, self.value)
 
-    def getJSON(self) -> any:
+    def getJSON(self) -> Any:
         return self.value
 
-    def loadJSON(self, value: any):
+    def loadJSON(self, value: Any):
         self.value = value
 
     def __str__(self) -> str:
@@ -40,5 +41,5 @@ class EnumNodeArg(NodeArg):
 
 class NodeArgValue(abc.ABC):
     @abc.abstractmethod
-    def get(self) -> any:
+    def get(self) -> Any:
         raise NotImplementedError
