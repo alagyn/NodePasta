@@ -74,17 +74,14 @@ class Node:
 
     _DOC_CACHE = None
 
-    def __init__(self, *, noneCapable: bool = True):
+    def _init(self, idManager: IDManager, inVarports: Optional[List[int]] = None, outVarPorts: Optional[List[int]] = None):
         self.nodeID = -1
-
-        self._noneCapable = noneCapable
 
         self.args: Dict[str, NodeArg] = {x.name: x.copy() for x in self._ARGS}
 
         self.pos = Vec()
         self.datamap: _DataMap = _DataMap()
 
-    def _init(self, idManager: IDManager, inVarports: Optional[List[int]] = None, outVarPorts: Optional[List[int]] = None):
         if inVarports is None:
             inVarports = [1 for _ in range(len(self._INPUTS))]
 
@@ -144,10 +141,21 @@ class Node:
                 raise NodeDefError("Node.loadArgs()",
                                    f"{self} Invalid Argument name {key}:{val}")
 
+    def init(self) -> None:
+        """
+        Override for logic that needs to run once at startup
+        Storing data in the datamap that other nodes need to setup
+        should happen here, but make no assumptions about the 
+        order that nodes are initialized. Only check for stored values
+        in setup()
+        """
+        raise NotImplementedError
+
     def setup(self) -> None:
         """
-        Resets internals and forces all arguments to take effect
-        :return:
+        Resets internals and forces all arguments to take effect.
+        Override and use to clear internal state. Will only be called
+        after every node has had init() called, so the datamap can be read
         """
         raise NotImplementedError
 

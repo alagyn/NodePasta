@@ -1,5 +1,6 @@
 import sys
 import tkinter as tk
+import os
 
 from nodepasta.nodegraph import NodeGraph
 from .example_nodes import const_source, power_node, output_node, sum_node, offset_node, listifier, enumNode
@@ -44,7 +45,6 @@ if __name__ == '__main__':
     ngFrame.setPortTypeColor("float", "lightgreen")
     ngFrame.setPortTypeColor('int', "brown")
 
-
     def reload():
         try:
             ng.loadFromFile(filename)
@@ -54,29 +54,29 @@ if __name__ == '__main__':
             print("ERROR:", str(err))
             exit()
 
-
-    reload()
+    if os.path.exists(filename):
+        reload()
 
     ngFrame.grid(row=0, column=0, sticky='nesw')
 
-
     def execute():
         try:
+            # setupNodes should only be called when you want to reset
+            # the internal state of your nodes
+            ng.setupNodes()
+            print(ng.str_traversal())
+            print("-------------------")
             ng.execute()
         except NodeGraphError as e:
             # Set an error message in the info box
             ngFrame.setErrorMessage(f'{e.loc}: {e.msg}')
 
-
     btnFrame = tk.LabelFrame(root, text='Buttons')
     btnFrame.grid(row=1, column=0, sticky='sw')
 
-
     def save():
-        file = 'out.json'
-        print(f"Saving to {file}")
-        ng.saveToFile(file)
-
+        print(f"Saving to {filename}")
+        ng.saveToFile(filename)
 
     tk.Button(btnFrame, text="Execute", command=execute).grid(row=0, column=0, sticky='w')
     tk.Button(btnFrame, text="Reload", command=reload).grid(row=0, column=1, sticky='w')

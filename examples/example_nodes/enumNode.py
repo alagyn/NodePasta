@@ -1,25 +1,25 @@
-from nodepasta.node import Node, InPort, OutPort
+from nodepasta.node import Node, Port
 from nodepasta.argtypes import EnumNodeArg
 from operator import lt, gt
 
 _TYPE = '_TYPE'
 
+
 class EnumNode(Node):
     DESCRIPTION = "Compares two float values (A [operation] B)"
     _INPUTS = [
-        InPort("A", "float", "The first value"),
-        InPort("B", "float", "The second value")
+        Port("A", "float", "The first value"),
+        Port("B", "float", "The second value")
     ]
     _OUTPUTS = [
-        OutPort("Check", "bool", "The output of the comparison")
+        Port("Check", "bool", "The output of the comparison")
     ]
     _ARGS = [
-        EnumNodeArg(_TYPE, "Type", "The comparison operator to use" ,"<", ["<", ">"])
+        EnumNodeArg(_TYPE, "Type", "The comparison operator to use", "<", ["<", ">"])
     ]
     NODETYPE = "Compare"
 
-    def __init__(self):
-        super().__init__()
+    def init(self) -> None:
         self._opType = self.args[_TYPE]
         self.op = None
         self.a = self.inputs[0]
@@ -33,7 +33,7 @@ class EnumNode(Node):
             self.op = gt
 
     def execute(self) -> None:
-        if self.a.value is None or self.b.value is None:
-            self.out.setValue(None)
+        if self.a.value() is None or self.b.value() is None:
+            self.out.value(None)
         else:
-            self.out.setValue(self.op(self.a.value, self.b.value))
+            self.out.value(self.op(self.a.value(), self.b.value()))

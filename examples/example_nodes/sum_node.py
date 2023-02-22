@@ -1,14 +1,16 @@
-from nodepasta.node import Node, InPort, OutPort
+from nodepasta.node import Node, Port
 
 
 class SumNode(Node):
     DESCRIPTION = "Adds two values together"
-    _INPUTS = [InPort("a", "float", "The first value"), InPort("b", "float", "The second value")]
-    _OUTPUTS = [OutPort("value", "float", "The output")]
+    _INPUTS = [
+        Port("a", "float", "The first value"),
+        Port("b", "float", "The second value")
+    ]
+    _OUTPUTS = [Port("value", "float", "The output")]
     NODETYPE = "Sum"
 
-    def __init__(self):
-        super(SumNode, self).__init__(noneCapable=False)
+    def init(self):
         self.a = self.inputs[0]
         self.b = self.inputs[1]
         self.out = self.outputs[0]
@@ -17,7 +19,7 @@ class SumNode(Node):
         pass
 
     def execute(self) -> None:
-        if self.a.value is None or self.b.value is None:
-            self.out.setValue(None)
+        if self.a.value() is None or self.b.value() is None:
+            self.out.value(None)
 
-        self.out.setValue(self.a.value + self.b.value)
+        self.out.value(self.a.value() + self.b.value())

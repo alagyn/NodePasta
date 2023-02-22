@@ -46,6 +46,8 @@ class NodeGraph:
 
     def setupNodes(self):
         for node in self:
+            node.init()
+        for node in self:
             node.setup()
 
     def _loadFromJSON(self, jGraph):
@@ -356,18 +358,26 @@ class NodeGraph:
 
         self._traversal = list(newQ)
 
+    def str_traversal(self) -> str:
+        """
+        Returns a string representation of the
+        node graph's traversal. I.E., the order that
+        the nodes are executed in
+        """
+        if self._traversal is None:
+            self.genTraversal()
+
+        lines = ["TRAVERSAL"]
+        for x in self._traversal:
+            lines.append(str(x))
+        return "\n".join(lines)
+
     def execute(self):
         if self._traversal is None:
             self.genTraversal()
 
         if self._traversal is None:
             return
-
-        # TODO REMOVE
-        print("TRAVERSAL")
-        for x in self._traversal:
-            print(x)
-        print("-------------------")
 
         # Reset input ports to None or []
         for n in self._nodeLookup.values():
