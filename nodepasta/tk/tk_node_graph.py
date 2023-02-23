@@ -603,8 +603,9 @@ class TKNodeGraph(tk.Frame):
             raise NodeGraphError("TKNodeGraph._addVarPort()",
                                  "DEV: Cannot add varport to non variable port")
 
+        nextNum = len(portref.port.getPorts())
         varPort = portref.port.addVarPort()
-        varPortRef = _VarPortRef(len(portref.port.getPorts()), portref, varPort)
+        varPortRef = _VarPortRef(nextNum, portref, varPort)
 
         portref.nodeRef.numPorts += 1
         portref.varPorts.append(varPortRef)
@@ -658,7 +659,7 @@ class TKNodeGraph(tk.Frame):
 
         n = nodeRef.node
 
-        nodeRef.iPorts, icnt, ivpcnt = self._drawPorts(n.getInputPorts(), nodeRef, "w", _PortIO.IN)
+        nodeRef.iPorts, icnt, ivpcnt = self._drawPorts(n.inputs, nodeRef, "w", _PortIO.IN)
         nodeRef.oPorts, ocnt, ovpcnt = self._drawPorts(n.outputs, nodeRef, "e", _PortIO.OUT)
 
         if len(nodeRef.iPorts) > 0:

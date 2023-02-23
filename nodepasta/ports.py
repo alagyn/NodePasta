@@ -81,7 +81,7 @@ class InPort(IOPort):
 
     def setLink(self, link: Link):
         if link.cPort != self:
-            raise NodeDefError("_InPort.setLink", "Cannot set link, unequals port ID")
+            raise NodeDefError("InPort.setLink", "Cannot set link, unequals port ID")
         x = self.link
         self.link = link
         return x
@@ -90,14 +90,24 @@ class InPort(IOPort):
         if self.link == link:
             self.link = None
         else:
-            raise NodeDefError("_InPort.remLink", "Cannot remove link, unequal link ID")
+            raise NodeDefError("InPort.remLink", "Cannot remove link, unequal link ID")
 
     def getPorts(self) -> Sequence['IOPort']:
         return [self]
 
     def setVarPorts(self, num: int):
         if num != 1:
-            raise NodeDefError("_InPort.setVarPorts()", "Cannot set varports, port not variable")
+            raise NodeDefError("InPort.setVarPorts()",
+                               "Cannot set varports num != 1, port not variable")
+
+    def addVarPort(self) -> 'IOPort':
+        raise NodeDefError('InPort.addVarPort()', 'Cannot add var port, port is not variable')
+
+    def remVarPort(self):
+        raise NodeDefError('InPort.remVarPort()', 'Cannot rem var port, port is not variable')
+
+    def __str__(self):
+        return f'InPort(type: {self.port.typeStr})'
 
 
 class OutPort(IOPort):
@@ -122,11 +132,17 @@ class OutPort(IOPort):
         try:
             self.links.remove(link)
         except ValueError:
-            raise NodeDefError("_OutPort.remLink()", "Cannot remove link, link not found") from None
+            raise NodeDefError("OutPort.remLink()", "Cannot remove link, link not found") from None
 
     def setVarPorts(self, num: int):
         if num != 1:
-            raise NodeDefError("_OutPort.setVarPorts()", "Cannot set varports, port not variable")
+            raise NodeDefError("OutPort.setVarPorts()", "Cannot set varports, port not variable")
+
+    def addVarPort(self) -> 'IOPort':
+        raise NodeDefError('OutPort.addVarPort()', 'Cannot add var port, port is not variable')
+
+    def remVarPort(self):
+        raise NodeDefError('OutPort.remVarPort()', 'Cannot rem var port, port is not variable')
 
     def __iter__(self) -> Iterator[Link]:
         return iter(self.links)
