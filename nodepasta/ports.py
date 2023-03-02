@@ -165,7 +165,6 @@ class _VarInPort(InPort):
     def getPorts(self) -> Sequence['IOPort']:
         return self.ports
 
-    @property
     def value(self) -> List[Any]:
         out = [None for _ in range(len(self.ports))]
         for idx, port in enumerate(self.ports):
@@ -203,7 +202,7 @@ class _VarOutPort(OutPort):
     def value(self, v: Any):
         if len(v) != len(self.ports):
             raise ExecutionError(
-                "_VarOutPort.value()", f"Invalid number of values, expected {len(self.ports)} got {len(v)}")
+                "_VarOutPort.value()", f"Invalid number of values len(varports) != len(value), expected {len(self.ports)} got {len(v)}")
 
         for port, value in zip(self.ports, v):
             port.value(value)
