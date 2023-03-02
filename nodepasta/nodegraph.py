@@ -51,53 +51,54 @@ class NodeGraph:
             node.setup()
 
     def _loadFromJSON(self, jGraph):
+        self._idManager.reset()
         nodeList = []
 
         if _NODES not in jGraph or len(jGraph[_NODES]) == 0:
             raise NodeGraphError("NodeGraph.loadFromFile()", f"No nodes defined in file")
 
         if _LINKS not in jGraph:
-            raise NodeGraphError("NodeGraph.loadFromFile()",
+            raise NodeGraphError("NodeGraph._loadFromJSON()",
                                  f"Cannot load file, links not defined ")
 
         for idx, n in enumerate(jGraph[_NODES]):
             try:
                 nodeClass = n[_CLASS]
             except KeyError:
-                raise NodeGraphError("NodeGraph.loadFromFile()",
+                raise NodeGraphError("NodeGraph._loadFromJSON()",
                                      f"Node #{idx}, no class was defined")
 
             try:
                 args = n[_ARGS]
             except KeyError:
-                raise NodeGraphError("NodeGraph.loadFromFile()",
+                raise NodeGraphError("NodeGraph._loadFromJSON()",
                                      f"Node #{idx}, no args were defined")
 
             try:
                 pos = n[_POS]
                 if len(pos) != 2:
-                    raise NodeGraphError(f'NodeGraph.loadFromFile()',
+                    raise NodeGraphError(f'NodeGraph._loadFromJSON()',
                                          f'Node #{idx}, invalid pos length')
             except KeyError:
-                raise NodeGraphError(f"NodeGraph.loadFromFile()",
+                raise NodeGraphError(f"NodeGraph._loadFromJSON()",
                                      f"Node #{idx}, no pos was defined")
 
             try:
                 nodeType = self._nodeTypes[nodeClass]
             except KeyError:
-                raise NodeGraphError(f'NodeGraph.loadFromFile()',
+                raise NodeGraphError(f'NodeGraph._loadFromJSON()',
                                      f'Node #{idx}, class type "{nodeClass}" not registered')
 
             try:
                 inVarPorts = n[_IN_VAR_PORTS]
             except KeyError:
-                raise NodeGraphError(f"NodeGraph.loadFromFile()",
+                raise NodeGraphError(f"NodeGraph._loadFromJSON()",
                                      f"Node #{idx}, varPorts field missing")
 
             try:
                 outVarPorts = n[_OUT_VAR_PORTS]
             except KeyError:
-                raise NodeGraphError(f"NodeGraph.loadFromFile()",
+                raise NodeGraphError(f"NodeGraph._loadFromJSON()",
                                      f"Node #{idx}, varPorts field missing")
 
             newNode = nodeType()
@@ -109,7 +110,7 @@ class NodeGraph:
 
         for idx, link in enumerate(jGraph[_LINKS]):
             if len(link) != 2:
-                raise NodeGraphError(f'NodeGraph.loadFromFile()', f'Link #{idx}, invalid length')
+                raise NodeGraphError(f'NodeGraph._loadFromJSON()', f'Link #{idx}, invalid length')
             pPortId = link[0]
             cPortId = link[1]
             pPort = self._portLookup[pPortId]

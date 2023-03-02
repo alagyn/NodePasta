@@ -4,6 +4,11 @@ class IDManager:
         self._portIDGen = -1
         self._linkIDGen = -1
 
+    def reset(self):
+        self._nodeIDGen = -1
+        self._portIDGen = -1
+        self._linkIDGen = -1
+
     def newNode(self) -> int:
         self._nodeIDGen += 1
         return self._nodeIDGen
