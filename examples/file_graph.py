@@ -97,6 +97,6 @@ if __name__ == '__main__':
         row=0, column=2, stick='w'
     )
 
-    root.state('zoomed')
+    #root.state('zoomed')
 
     root.mainloop()

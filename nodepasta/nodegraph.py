@@ -369,6 +369,9 @@ class NodeGraph:
             self.genTraversal()
 
         lines = ["TRAVERSAL"]
+        if self._traversal is None:
+            raise RuntimeError()
+
         for x in self._traversal:
             lines.append(str(x))
         return "\n".join(lines)

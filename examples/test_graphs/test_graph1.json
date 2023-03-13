@@ -1,46 +1,56 @@
 {
-    "nodes": [
-        {
-            "class": "Source",
-            "args": {
-                "value": 5
-            },
-            "pos": [30, 50]
-        },
-        {
-            "class": "Source",
-            "args": {
-                "value": 2
-            },
-            "pos": [30, 120]
-        },
-        {
-            "class": "Power",
-            "args": {},
-            "pos": [160, 40]
-        },
-        {
-            "class": "Sum",
-            "args": {},
-            "pos": [240, 60]
-        },
-        {
-            "class": "Output",
-            "args": {},
-            "pos": [320, 70]
-        },
-        {
-            "class": "Offset",
-            "args": {"offset": 2},
-            "pos": [250, 180]
-        }
+  "nodes": [
+    {
+      "class": "Source",
+      "args": {
+        "value": 2
+      },
+      "pos": [
+        44.0,
+        243.0
+      ],
+      "inVarPorts": [],
+      "outVarPorts": [
+        1
+      ]
+    },
+    {
+      "class": "Offset",
+      "args": {
+        "offset": 2
+      },
+      "pos": [
+        168.0,
+        218.0
+      ],
+      "inVarPorts": [
+        1
+      ],
+      "outVarPorts": [
+        1
+      ]
+    },
+    {
+      "class": "Output",
+      "args": {},
+      "pos": [
+        345.17626953125,
+        260.6095886230469
+      ],
+      "inVarPorts": [
+        1
+      ],
+      "outVarPorts": []
+    }
+  ],
+  "links": [
+    [
+      0,
+      1
     ],
-    
-    "links": [
-        [0, 0, 0, 2, 0, 0],
-        [1, 0, 0, 2, 1, 0],
-        [2, 0, 0, 3, 0, 0],
-        [1, 0, 0, 3, 1, 0],
-        [3, 0, 0, 4, 0, 0]
+    [
+      2,
+      3
     ]
+  ]
 }

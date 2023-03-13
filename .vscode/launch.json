@@ -5,11 +5,24 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug",
-            "type": "cppvsdbg",
-            "program": "${workspaceRoot}/ImPasta/build/Debug/TEST.exe",
+            "name": "Im Gui",
+            "type": "python",
             "request": "launch",
-            "cwd": "${workspaceRoot}"
+            "module": "examples.basic_gui",
+            "args": [
+                "examples/test_graphs/test_graph1.json"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Tk Gui",
+            "type": "python",
+            "request": "launch",
+            "module": "examples.file_graph",
+            "args": [
+                "examples/test_graphs/test_graph1.json"
+            ],
+            "justMyCode": true
         }
     ]
 }

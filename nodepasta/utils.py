@@ -1,9 +1,9 @@
 
 
 class Vec:
-    def __init__(self, x=0, y=0):
-        self.x = x
-        self.y = y
+    def __init__(self, x=0.0, y=0.0):
+        self.x: float = x
+        self.y: float = y
 
     def __add__(self, other: 'Vec') -> 'Vec':
         return Vec(self.x + other.x, self.y + other.y)
