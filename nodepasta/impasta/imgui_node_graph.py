@@ -10,10 +10,9 @@ class ImNodeGraph:
         self.ng = ng
         imnodes.PushAttributeFlag(imnodes.AttributeFlags.EnableLinkDetachWithDragClick)
 
-        # TODO modifier keys...
-        # ImNodesIO& io = ImNodes::GetIO();
-        # io.LinkDetachWithModifierClick.Modifier = &ImGui::GetIO().KeyCtrl;
-        # io.MultipleSelectModifier.Modifier = &ImGui::GetIO().KeyCtrl;
+        io = imnodes.GetIO()
+        io.SetLinkDetachedWithModifierClick(im.ImKey.Mod_Ctrl)
+        io.SetEmulateThreeButtonMouseMod(im.ImKey.Mod_Alt)
 
 
     def render(self):
