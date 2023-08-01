@@ -8,25 +8,23 @@ from nodepasta.id_manager import IDManager
 
 
 class _DataMap:
+
     def __init__(self):
         self._datamap = None
 
     def __contains__(self, item: Hashable) -> bool:
         if self._datamap is None:
-            raise ExecutionError("_DataMap.__contains__()",
-                                 "Node is not part of a NodeGraph, no datamap set")
+            raise ExecutionError("_DataMap.__contains__()", "Node is not part of a NodeGraph, no datamap set")
         return item in self._datamap
 
     def __getitem__(self, item) -> Any:
         if self._datamap is None:
-            raise ExecutionError("_DataMap.__getitem__()",
-                                 "Node is not part of a NodeGraph, no datamap set")
+            raise ExecutionError("_DataMap.__getitem__()", "Node is not part of a NodeGraph, no datamap set")
         return self._datamap[item]
 
     def __setitem__(self, key, value) -> None:
         if self._datamap is None:
-            raise ExecutionError("_DataMap.__setitem__()",
-                                 "Node is not part of a NodeGraph, no datamap set")
+            raise ExecutionError("_DataMap.__setitem__()", "Node is not part of a NodeGraph, no datamap set")
         self._datamap[key] = value
 
 
@@ -34,6 +32,7 @@ NODE_ERR_CN = "__ERROR__"
 
 
 class _ILinkIter(Iterator[Link]):
+
     def __init__(self, node: 'Node') -> None:
         super().__init__()
         self._portIter: Iterator[InPort] = iter(node.getInputPorts())
@@ -46,6 +45,7 @@ class _ILinkIter(Iterator[Link]):
 
 
 class _OLinkIter(Iterator[Link]):
+
     def __init__(self, node: 'Node') -> None:
         super().__init__()
         self._listIter: Iterator[OutPort] = iter(node.outputs)
@@ -74,10 +74,13 @@ class Node:
 
     _DOC_CACHE = None
 
-    def _init(self, idManager: IDManager, inVarports: Optional[List[int]] = None, outVarPorts: Optional[List[int]] = None):
+    def _init(
+        self, idManager: IDManager, inVarports: Optional[List[int]] = None, outVarPorts: Optional[List[int]] = None
+    ):
         self.nodeID = -1
 
-        self.args: Dict[str, NodeArg] = {x.name: x.copy() for x in self._ARGS}
+        self.args: Dict[str, NodeArg] = {x.name: x.copy()
+                                         for x in self._ARGS}
 
         self.pos = Vec()
         self.datamap: _DataMap = _DataMap()
@@ -131,15 +134,15 @@ class Node:
         raise NotImplementedError
 
     def unloadArgs(self) -> Dict[str, Any]:
-        return {x.name: x.getJSON() for x in self.args.values()}
+        return {x.name: x.getJSON()
+                for x in self.args.values()}
 
     def loadArgs(self, args: Dict[str, Any]) -> None:
         for key, val in args.items():
             try:
                 self.args[key].loadJSON(val)
             except KeyError:
-                raise NodeDefError("Node.loadArgs()",
-                                   f"{self} Invalid Argument name {key}:{val}")
+                raise NodeDefError("Node.loadArgs()", f"{self} Invalid Argument name {key}:{val}")
 
     def init(self) -> None:
         """
@@ -149,7 +152,7 @@ class Node:
         order that nodes are initialized. Only check for stored values
         in setup()
         """
-        raise NotImplementedError
+        raise NotImplementedError(f'Node: {self.NODETYPE}.init() not implemented')
 
     def setup(self) -> None:
         """
@@ -157,7 +160,7 @@ class Node:
         Override and use to clear internal state. Will only be called
         after every node has had init() called, so the datamap can be read
         """
-        raise NotImplementedError
+        raise NotImplementedError(f'Node: {self.NODETYPE}.setup() not implemented')
 
     def __str__(self):
         return f'{self.__class__.__name__}_{self.nodeID}'

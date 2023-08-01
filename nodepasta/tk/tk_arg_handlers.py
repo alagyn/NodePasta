@@ -3,9 +3,13 @@ from tkinter import ttk
 import abc
 from typing import Any
 
-from nodepasta.argtypes import NodeArg, NodeArgValue, EnumNodeArg
+from nodepasta.argtypes import NodeArg, EnumNodeArg
 from nodepasta.argtypes import STRING, INT, FLOAT, ENUM, BOOL
 
+class NodeArgValue(abc.ABC):
+    @abc.abstractmethod
+    def get(self) -> Any:
+        raise NotImplementedError
 
 class TKArgHandler(abc.ABC):
     def __init__(self):

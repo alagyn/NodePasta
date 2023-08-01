@@ -7,7 +7,9 @@ import imgui.implot as implot
 import imgui.glfw as glfw
 
 from nodepasta.impasta.imgui_node_graph import ImNodeGraph
+from nodepasta.impasta.imgui_arg_handlers import IntHandler, FloatHandler, EnumHandler
 from nodepasta.nodegraph import NodeGraph
+from nodepasta.argtypes import INT, FLOAT, ENUM
 
 from .example_nodes import const_source, power_node, output_node, sum_node, offset_node, listifier, enumNode
 
@@ -16,13 +18,16 @@ HEIGHT = 600
 
 WINDOW_FLAGS = im.WindowFlags.NoResize | im.WindowFlags.NoCollapse | im.WindowFlags.NoMove
 
+
 def main():
     parser = ArgumentParser()
     parser.add_argument("input_file")
     args = parser.parse_args()
 
     # Init GLFW
-    window = glfw.Init(window_width=WIDTH, window_height=HEIGHT, title="ImPasta")
+    window = glfw.Init(
+        window_width=WIDTH, window_height=HEIGHT, title="ImPasta"
+    )
 
     if window is None:
         print("Error during GLFW init")
@@ -35,6 +40,22 @@ def main():
     glfw.InitContextForGLFW(window)
     # Set imgui Style
     im.StyleColorsDark()
+    imnodes.StyleColorsDark()
+
+    imnodes.PushColorStyle(
+        imnodes.Col.TitleBar, im.GetColorU32(im.Vec4(0.5, 0.2, 0.2, 1.0))
+    )
+
+    imnodes.PushColorStyle(
+        imnodes.Col.TitleBarHovered,
+        im.GetColorU32(im.Vec4(0.6, 0.4, 0.4, 1.0))
+    )
+
+    imnodes.PushColorStyle(
+        imnodes.Col.TitleBarSelected,
+        im.GetColorU32(im.Vec4(0.5, 0.3, 0.3, 1.0))
+    )
+
     # Set the background clear color
     clearColor = im.Vec4(0.45, 0.55, 0.6, 1.0)
 
@@ -59,6 +80,14 @@ def main():
         ng.loadFromFile(args.input_file)
     gui = ImNodeGraph(ng)
 
+    # Register the default argument handlers
+    argtypes = {
+        INT: IntHandler, FLOAT: FloatHandler, ENUM: EnumHandler
+    }
+
+    for k, v in argtypes.items():
+        gui.registerArgHandler(k, v)
+
     while True:
         # Init for new frame
         glfw.NewFrame()
@@ -68,7 +97,7 @@ def main():
         io = im.GetIO()
         im.SetNextWindowPos(im.Vec2(0, 0))
         im.SetNextWindowSize(io.DisplaySize)
-        im.Begin("Graph", closable=False, flags=WINDOW_FLAGS)
+        im.Begin("Graph", flags=WINDOW_FLAGS)
 
         # Render some buttons
         if im.Button("Save"):
@@ -101,6 +130,7 @@ def main():
     im.DestroyContext()
     # Shutdown GLFW
     glfw.Shutdown(window)
+
 
 if __name__ == '__main__':
     main()

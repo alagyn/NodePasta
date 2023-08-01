@@ -8,8 +8,7 @@ from nodepasta.ports import IOPort, Link, _VarInPort, _VarOutPort, InPort, OutPo
 from nodepasta.nodegraph import NodeGraph
 from nodepasta.utils import Vec
 from nodepasta.errors import NodeGraphError
-from nodepasta.argtypes import NodeArgValue
-from nodepasta.tk.tk_arg_handlers import TKArgHandler, DEF_HANDLERS, TKNotFoundHandler
+from nodepasta.tk.tk_arg_handlers import TKArgHandler, DEF_HANDLERS, TKNotFoundHandler, NodeArgValue
 
 
 # region Helper Classes

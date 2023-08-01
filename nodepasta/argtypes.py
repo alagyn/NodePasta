@@ -38,8 +38,3 @@ class EnumNodeArg(NodeArg):
     def copy(self) -> 'NodeArg':
         return EnumNodeArg(self.name, self.display, self.descr, self.value, self.enums)
 
-
-class NodeArgValue(abc.ABC):
-    @abc.abstractmethod
-    def get(self) -> Any:
-        raise NotImplementedError
