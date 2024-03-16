@@ -17,9 +17,7 @@ class ImNodeGraph:
 
     def __init__(self, ng: NodeGraph) -> None:
         self.ng = ng
-        imnodes.PushAttributeFlag(
-            imnodes.AttributeFlags.EnableLinkDetachWithDragClick
-        )
+        imnodes.PushAttributeFlag(imnodes.AttributeFlags.EnableLinkDetachWithDragClick)
 
         io = imnodes.GetIO()
         io.SetLinkDetachedWithModifierClick(im.ImKey.Mod_Ctrl)
@@ -53,9 +51,7 @@ class ImNodeGraph:
 
     def _renderNode(self, node: Node):
         if not imnodes.IsNodeSelected(node.nodeID):
-            imnodes.SetNodeGridSpacePos(
-                node.nodeID, im.Vec2(node.pos.x, node.pos.y)
-            )
+            imnodes.SetNodeGridSpacePos(node.nodeID, im.Vec2(node.pos.x, node.pos.y))
         else:
             pos = imnodes.GetNodeGridSpacePos(node.nodeID)
             node.pos.x = pos.x
@@ -64,14 +60,14 @@ class ImNodeGraph:
         imnodes.BeginNode(node.nodeID)
 
         imnodes.BeginNodeTitleBar()
-        im.Text(node.NODETYPE)
-
-        im.Dummy(im.Vec2(0, 5))
+        if im.IsKeyDown(im.ImKey.Mod_Alt):
+            im.Text(str(node))
+        else:
+            im.Text(node.NODETYPE)
+        imnodes.EndNodeTitleBar()
 
         for arg in node.args.values():
             self._argHandlers[arg.argType].render(arg)
-
-        imnodes.EndNodeTitleBar()
 
         # TODO varports
         for iPort in node.getInputPorts():
@@ -93,18 +89,17 @@ class ImNodeGraph:
         im.Text(port.port.name)
 
     def _addNodePopup(self) -> None:
-        if (im.IsWindowFocused(im.FocusedFlags.RootAndChildWindows)
-                and imnodes.IsEditorHovered() and not im.IsAnyItemHovered()
-                and im.IsKeyDown(im.ImKey.A)
-                and im.IsMouseReleased(im.MouseButton.Left)):
+        if (im.IsKeyDown(im.ImKey.Space) and imnodes.IsEditorHovered() and not im.IsAnyItemHovered()
+                and not im.IsMouseDown(im.MouseButton.Left)):
+
             im.OpenPopup(_ADD_NODE_PU)
 
         if not im.BeginPopup(_ADD_NODE_PU):
             return
-        pos = im.GetMousePosOnOpeningCurrentPopup()
 
         for nodeType in self.ng.nodeTypes():
             if im.Selectable(nodeType.NODETYPE):
+                pos = im.GetMousePosOnOpeningCurrentPopup()
                 self.ng.addNode(nodeType).pos = Vec(pos.x, pos.y)
 
         im.EndPopup()

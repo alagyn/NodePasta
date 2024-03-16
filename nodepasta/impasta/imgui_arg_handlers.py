@@ -1,6 +1,9 @@
-from nodepasta.argtypes import NodeArg, EnumNodeArg
+from typing import Type
 
 import imgui as im
+
+from nodepasta.argtypes import NodeArg, EnumNodeArg
+from nodepasta.argtypes import INT, FLOAT, ENUM
 
 
 class ImArgHandler:
@@ -36,10 +39,18 @@ class EnumHandler(ImArgHandler):
     def render(cls, arg: NodeArg):
         if not isinstance(arg, EnumNodeArg):
             raise RuntimeError("Not an enum")
-        im.SetNextItemWidth(200)
+        im.SetNextItemWidth(100)
         if im.BeginCombo(arg.display, arg.value):
             for x in arg.enums:
                 if im.Selectable(x):
                     arg.value = x
 
             im.EndCombo()
+
+
+def getDefaultArgHandlers() -> dict[str, Type[ImArgHandler]]:
+    return {
+        INT: IntHandler,
+        FLOAT: FloatHandler,
+        ENUM: EnumHandler
+    }

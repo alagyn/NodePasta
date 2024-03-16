@@ -212,7 +212,8 @@ class NodeGraph:
                 linkJList.append([rebasePortLookup[link.pPort.portID], rebasePortLookup[link.cPort.portID]])
 
         out = {
-            _NODES: nodeJList, _LINKS: linkJList
+            _NODES: nodeJList,
+            _LINKS: linkJList
         }
 
         return out
@@ -227,10 +228,14 @@ class NodeGraph:
             node.nodeID = self._idManager.newNode()
             node.datamap._datamap = self.datamap  # type: ignore
             self._nodeLookup[node.nodeID] = node
-            self._portLookup.update({x.portID: x
-                                     for x in node.getInputPorts()})
-            self._portLookup.update({x.portID: x
-                                     for x in node.getOutputPorts()})
+            self._portLookup.update({
+                x.portID: x
+                for x in node.getInputPorts()
+            })
+            self._portLookup.update({
+                x.portID: x
+                for x in node.getOutputPorts()
+            })
         else:
             raise NodeGraphError('NodeGraph.addNodes()', f"Cannot add node {node}, it already belongs to a node graph")
         self._traversal = None
@@ -356,7 +361,7 @@ class NodeGraph:
 
         while len(q) > 0:
             if len(ahead) > 0:
-                raise Exception("Ahead set should be empty")
+                raise NodeDefError("Nodegraph.genTraversal()", "Ahead set should be empty")
 
             curItem = q.popleft()
             if curItem.nodeID in behind:
@@ -395,7 +400,10 @@ class NodeGraph:
             n.resetPorts()
 
         for n in self._traversal:
-            n.execute()
+            try:
+                n.execute()
+            except Exception as err:
+                raise ExecutionError("Nodegraph.execute()", f"Error running node '{n}': {err}") from None
 
     def getLinkByPortID(self, pPortID: int, cPortID: int):
         return self._linkLookup[(pPortID, cPortID)]
