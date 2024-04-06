@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Im Gui",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "examples.basic_gui",
             "args": [
@@ -16,12 +16,19 @@
         },
         {
             "name": "Tk Gui",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "examples.file_graph",
             "args": [
                 "examples/test_graphs/test_graph1.json"
             ],
+            "justMyCode": true
+        },
+        {
+            "name": "Example Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "examples.node_test_case",
             "justMyCode": true
         }
     ]
