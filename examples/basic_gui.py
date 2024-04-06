@@ -4,7 +4,7 @@ import os
 import imgui as im
 import imgui.imnodes as imnodes
 import imgui.implot as implot
-import imgui.glfw as glfw
+import glfw as glfw
 
 from nodepasta.impasta.imgui_node_graph import ImNodeGraph
 from nodepasta.impasta.imgui_arg_handlers import IntHandler, FloatHandler, EnumHandler
@@ -24,27 +24,36 @@ def main():
     parser.add_argument("input_file")
     args = parser.parse_args()
 
-    # Init GLFW
-    window = glfw.Init(window_width=WIDTH, window_height=HEIGHT, title="ImPasta")
+    if not glfw.Init():
+        print("Cannot initialize GLFW")
+        return
 
+    # create our window
+    glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, 4)
+    glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, 6)
+    window = glfw.CreateWindow(WIDTH, HEIGHT, "ImPasta")
     if window is None:
-        print("Error during GLFW init")
-        exit(1)
+        print("Cannot create GLFW window")
+        return
 
-    # Create contexts.
+    glfw.MakeContextCurrent(window)
+    # enable vsync
+    glfw.SwapInterval(1)
+
+    # Create ImGui context
     im.CreateContext()
     imnodes.CreateContext()
-    # Init glfw
-    glfw.InitContextForGLFW(window)
+
+    # Initialize glfw backend
+    im.InitContextForGLFW(window)
+
     # Set imgui Style
     im.StyleColorsDark()
     imnodes.StyleColorsDark()
 
-    imnodes.PushColorStyle(imnodes.Col.TitleBar, im.GetColorU32(im.Vec4(0.5, 0.2, 0.2, 1.0)))
-
-    imnodes.PushColorStyle(imnodes.Col.TitleBarHovered, im.GetColorU32(im.Vec4(0.6, 0.4, 0.4, 1.0)))
-
-    imnodes.PushColorStyle(imnodes.Col.TitleBarSelected, im.GetColorU32(im.Vec4(0.5, 0.3, 0.3, 1.0)))
+    #imnodes.PushColorStyle(imnodes.Col.TitleBar, im.GetColorU32(im.Vec4(0.5, 0.2, 0.2, 1.0)))
+    #imnodes.PushColorStyle(imnodes.Col.TitleBarHovered, im.GetColorU32(im.Vec4(0.6, 0.4, 0.4, 1.0)))
+    #imnodes.PushColorStyle(imnodes.Col.TitleBarSelected, im.GetColorU32(im.Vec4(0.5, 0.3, 0.3, 1.0)))
 
     # Set the background clear color
     clearColor = im.Vec4(0.45, 0.55, 0.6, 1.0)
@@ -77,50 +86,50 @@ def main():
 
     while True:
         # Init for new frame
-        glfw.NewFrame()
+        glfw.PollEvents()
         im.NewFrame()
-
         # Make a window for the graph to live in
         io = im.GetIO()
         im.SetNextWindowPos(im.Vec2(0, 0))
         im.SetNextWindowSize(io.DisplaySize)
-        im.Begin("Graph", flags=WINDOW_FLAGS)
+        if im.Begin("Graph", flags=WINDOW_FLAGS):
+            # Render some buttons
+            if im.Button("Save"):
+                print(f"Saving to {args.input_file}")
+                ng.saveToFile(args.input_file)
 
-        # Render some buttons
-        if im.Button("Save"):
-            print(f"Saving to {args.input_file}")
-            ng.saveToFile(args.input_file)
+            im.SameLine()
 
-        im.SameLine()
+            if im.Button("Execute"):
+                ng.setupNodes()
+                print(ng.str_traversal())
+                print("------------------- Executing --------------")
+                try:
+                    ng.execute()
+                except Exception as err:
+                    print("Error Executing:", err)
 
-        if im.Button("Execute"):
-            ng.setupNodes()
-            print(ng.str_traversal())
-            print("------------------- Executing --------------")
-            try:
-                ng.execute()
-            except Exception as err:
-                print("Error Executing:", err)
-
-        # Render graph
-    # TODO load graph
-        gui.render()
+            # Render graph
+            gui.render()
 
         # End the window
         im.End()
-        # Tell backends to render frame
-        im.Render()
-        glfw.Render(window, clearColor)
 
-        if glfw.ShouldClose(window):
+        # Tell backends to render frame
+        im.Render(window, clearColor)
+        glfw.SwapBuffers(window)
+
+        if glfw.WindowShouldClose(window):
             break
 
     # Shutdown GLFW
-    glfw.Shutdown(window)
+    glfw.DestroyWindow(window)
     # Destroy contexts
     # Must do this in the reverse as they were initialized
     imnodes.DestroyContext()
     im.DestroyContext()
+
+    glfw.Terminate()
 
 
 if __name__ == '__main__':

@@ -1,0 +1,79 @@
+{
+  "nodes": [
+    {
+      "class": "Source",
+      "args": {
+        "value": 2
+      },
+      "pos": [
+        163.0,
+        242.0
+      ],
+      "inVarPorts": [],
+      "outVarPorts": [
+        1
+      ]
+    },
+    {
+      "class": "Offset",
+      "args": {
+        "offset": 2
+      },
+      "pos": [
+        343.0,
+        184.0
+      ],
+      "inVarPorts": [
+        1
+      ],
+      "outVarPorts": [
+        1
+      ]
+    },
+    {
+      "class": "Power",
+      "args": {},
+      "pos": [
+        512.0,
+        314.0
+      ],
+      "inVarPorts": [
+        1,
+        1
+      ],
+      "outVarPorts": [
+        1
+      ]
+    },
+    {
+      "class": "Output",
+      "args": {},
+      "pos": [
+        613.0,
+        303.0
+      ],
+      "inVarPorts": [
+        1
+      ],
+      "outVarPorts": []
+    }
+  ],
+  "links": [
+    [
+      0,
+      4
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      5,
+      6
+    ]
+  ]
+}

@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 
 class Link:
+
     def __init__(self, linkID: int, pPort: 'IOPort', cPort: 'IOPort'):
         self.linkID = linkID
         self.pPort = pPort
@@ -26,14 +27,19 @@ class Link:
 
 
 class Port:
+
     def __init__(self, name: str, typeStr: str, descr: str, variable=False) -> None:
         self.name = name
         self.typeStr = typeStr
         self.descr = descr
         self.variable = variable
 
+    def copy(self) -> 'Port':
+        return Port(self.name, self.typeStr, self.descr, self.variable)
+
 
 class IOPort:
+
     def __init__(self, portID: int, port: Port, node: 'Node'):
         self.portID = portID
         self.node = node
@@ -70,6 +76,7 @@ class IOPort:
 
 
 class InPort(IOPort):
+
     def __init__(self, portID: int, port: Port, node: 'Node'):
         super().__init__(portID, port, node)
 
@@ -81,7 +88,7 @@ class InPort(IOPort):
 
     def setLink(self, link: Link):
         if link.cPort != self:
-            raise NodeDefError("InPort.setLink", "Cannot set link, unequals port ID")
+            raise NodeDefError("InPort.setLink", "Cannot set link, unequal port ID")
         x = self.link
         self.link = link
         return x
@@ -97,8 +104,7 @@ class InPort(IOPort):
 
     def setVarPorts(self, num: int):
         if num != 1:
-            raise NodeDefError("InPort.setVarPorts()",
-                               "Cannot set varports num != 1, port not variable")
+            raise NodeDefError("InPort.setVarPorts()", "Cannot set varports num != 1, port not variable")
 
     def addVarPort(self) -> 'IOPort':
         raise NodeDefError('InPort.addVarPort()', 'Cannot add var port, port is not variable')
@@ -111,6 +117,7 @@ class InPort(IOPort):
 
 
 class OutPort(IOPort):
+
     def __init__(self, portID: int, port: Port, node: 'Node'):
         super().__init__(portID, port, node)
         self.links: List[Link] = []
@@ -152,6 +159,7 @@ class OutPort(IOPort):
 
 
 class _VarInPort(InPort):
+
     def __init__(self, idManager: IDManager, port: Port, node: 'Node'):
         super().__init__(-1, port, node)
         self.ports: List[InPort] = []
@@ -188,6 +196,7 @@ class _VarInPort(InPort):
 
 
 class _VarOutPort(OutPort):
+
     def __init__(self, idManager: IDManager, port: Port, node: 'Node'):
         super().__init__(-1, port, node)
         self.ports: List[OutPort] = []
@@ -202,7 +211,9 @@ class _VarOutPort(OutPort):
     def value(self, v: Any):
         if len(v) != len(self.ports):
             raise ExecutionError(
-                "_VarOutPort.value()", f"Invalid number of values len(varports) != len(value), expected {len(self.ports)} got {len(v)}")
+                "_VarOutPort.value()",
+                f"Invalid number of values len(varports) != len(value), expected {len(self.ports)} got {len(v)}"
+            )
 
         for port, value in zip(self.ports, v):
             port.value(value)

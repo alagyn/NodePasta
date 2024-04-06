@@ -1,50 +1,8 @@
-from typing import List, Dict, Any, Union
+from typing import Dict, Any
 
 from nodepasta.node import Node, Link
-from nodepasta.ports import IOPort, InPort, OutPort
-from nodepasta.errors import NodeDefError
-
-
-class DummyLink:
-    def __init__(self, port: IOPort) -> None:
-        self.port = port
-        port.setLink(self)  # type: ignore
-        self.value = None
-
-    def setValue(self, value: Any):
-        self.value = value
-
-    def getValue(self) -> Any:
-        return self.value
-
-
-class DummyVarLink:
-    def __init__(self, port: IOPort) -> None:
-        if not port.port.variable:
-            raise NodeDefError("DummyVarLink.init()", "Port not variable")
-
-        self.dummyLinks: List[DummyLink] = []
-
-        for varport in port.getPorts():
-            dl = DummyLink(varport)
-            self.dummyLinks.append(dl)
-
-    def setValue(self, value: List[Any]):
-        if len(value) != len(self.dummyLinks):
-            raise NodeDefError("DummyVarLink.setValue()",
-                               f"Expected {len(self.dummyLinks)} values, got {len(value)}")
-
-        for dl, val in zip(self.dummyLinks, value):
-            dl.setValue(val)
-
-    def getValue(self) -> List[Any]:
-        return [x.getValue() for x in self.dummyLinks]
-
-
-def makeDummyLink(port: IOPort) -> Union[DummyLink, DummyVarLink]:
-    if port.port.variable:
-        return DummyVarLink(port)
-    return DummyLink(port)
+from nodepasta.ports import InPort, OutPort
+from nodepasta.id_manager import IDManager
 
 
 class Tester:
@@ -60,12 +18,24 @@ class Tester:
 
         self._node = node
 
-        self._inLinks: Dict[str, Union[DummyLink, DummyVarLink]] = {
-            port.port.name: makeDummyLink(port) for port in node.getInputPorts()
-        }
-        self._outLinks: Dict[str, Union[DummyLink, DummyVarLink]] = {
-            port.port.name: makeDummyLink(port) for port in node.getOutputPorts()
-        }
+        # Init first to setup the internal objects
+        self._idManager = IDManager()
+        self._node._init(self._idManager)
+
+        self._inLinks: Dict[str, Link] = {}
+        self._outLinks: Dict[str, Link] = {}
+
+        for port in node.getInputPorts():
+            newPort = OutPort(self._idManager.newPort(), port.port.copy(), Node())
+            newLink = Link(self._idManager.newLink(), newPort, port)
+            self._inLinks[port.port.name] = newLink
+            port.setLink(newLink)
+
+        for port in node.getOutputPorts():
+            newPort = InPort(self._idManager.newPort(), port.port.copy(), Node())
+            newLink = Link(self._idManager.newLink(), port, newPort)
+            self._outLinks[port.port.name] = newLink
+            port.setLink(newLink)
 
     def test(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -76,13 +46,13 @@ class Tester:
         :return: A Dict of outPortName to value
         """
         for key, value in inputs.items():
-            self._inLinks[key].setValue(value)
+            self._inLinks[key].value = value
 
         self._node.execute()
 
         out = {}
 
         for key, link in self._outLinks.items():
-            out[key] = link.getValue()
+            out[key] = link.value
 
         return out

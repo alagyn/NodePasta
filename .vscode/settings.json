@@ -3,4 +3,7 @@
     "cmake.buildDirectory": "${workspaceFolder}/ImPasta/build",
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "python.analysis.typeCheckingMode": "basic",
+    "[python]": {
+        "editor.formatOnType": false
+    },
 }
