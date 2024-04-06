@@ -66,7 +66,7 @@ class IOPort:
         raise NotImplementedError
 
     def __str__(self):
-        return f'InPort(type:{self.port.typeStr})'
+        raise NotImplementedError
 
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, InPort):
@@ -113,7 +113,7 @@ class InPort(IOPort):
         raise NodeDefError('InPort.remVarPort()', 'Cannot rem var port, port is not variable')
 
     def __str__(self):
-        return f'InPort(type: {self.port.typeStr})'
+        return f'InPort(name: {self.port.name}, type: {self.port.typeStr})'
 
 
 class OutPort(IOPort):
@@ -155,7 +155,7 @@ class OutPort(IOPort):
         return iter(self.links)
 
     def __str__(self):
-        return f'OutPort(type: {self.port.typeStr})'
+        return f'OutPort(name: {self.port.name}, type: {self.port.typeStr})'
 
 
 class _VarInPort(InPort):

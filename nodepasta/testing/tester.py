@@ -22,14 +22,13 @@ class Tester:
         self._idManager = IDManager()
         self._node._init(self._idManager)
 
-        self._inLinks: Dict[str, Link] = {}
+        self._inputMap: Dict[str, int] = {}
+        self._outputMap: Dict[int, str] = {}
+
         self._outLinks: Dict[str, Link] = {}
 
-        for port in node.getInputPorts():
-            newPort = OutPort(self._idManager.newPort(), port.port.copy(), Node())
-            newLink = Link(self._idManager.newLink(), newPort, port)
-            self._inLinks[port.port.name] = newLink
-            port.setLink(newLink)
+        for idx, port in enumerate(node.inputs):
+            self._inputMap[port.port.name] = idx
 
         for port in node.getOutputPorts():
             newPort = InPort(self._idManager.newPort(), port.port.copy(), Node())
@@ -45,8 +44,29 @@ class Tester:
         :inputs: A Dict of inPortName to value
         :return: A Dict of outPortName to value
         """
+
+        for key in inputs.keys():
+            if key not in self._inputMap:
+                raise RuntimeError(f"Invalid Input Key: {key}")
+
         for key, value in inputs.items():
-            self._inLinks[key].value = value
+            port = self._node.inputs[self._inputMap[key]]
+            # If not var port, make a single new port
+            # with a single value
+            if not port.port.variable:
+                newPort = OutPort(self._idManager.newPort(), port.port.copy(), Node())
+                newLink = Link(self._idManager.newLink(), newPort, port)
+                port.setLink(newLink)
+                newLink.value = value
+            # else attempt to iterate over the value
+            else:
+                # set the num of var ports to the num of values
+                port.setVarPorts(len(value))
+                for x, varPort in zip(value, port.getPorts()):
+                    newPort = OutPort(self._idManager.newPort(), port.port.copy(), Node())
+                    newLink = Link(self._idManager.newLink(), newPort, varPort)
+                    varPort.setLink(newLink)
+                    newLink.value = x
 
         self._node.execute()
 
