@@ -4,7 +4,7 @@ import os
 import imgui as im
 import imgui.imnodes as imnodes
 import imgui.implot as implot
-import glfw as glfw
+import imgui.glfw as glfw
 
 from nodepasta.impasta.imgui_node_graph import ImNodeGraph
 from nodepasta.impasta.imgui_arg_handlers import IntHandler, FloatHandler, EnumHandler
