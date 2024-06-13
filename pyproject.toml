@@ -1,3 +1,38 @@
 [build-system]
 requires = ["setuptools>=58.3"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "nodepasta"
+version = "2.0.0"
+authors = [{ name = "Alagyn" }]
+description = "A Node Based Visual Scripting System"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: User Interfaces",
+]
+
+dependencies = ["py-imgui-redux==3.1.0"]
+
+[project.urls]
+Repository = "https://github.com/alagyn/NodePasta"
+Issues = "https://github.com/alagyn/NodePasta/issues"
+
+[tool.setuptools]
+packages = [
+    "nodepasta",
+    "nodepasta.impasta",
+    "nodepasta.tk",
+    "nodepasta.testing",
+]
