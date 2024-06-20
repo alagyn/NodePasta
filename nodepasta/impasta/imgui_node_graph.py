@@ -23,14 +23,18 @@ class ImNodeGraph:
         imnodes.PushAttributeFlag(imnodes.AttributeFlags.EnableLinkDetachWithDragClick)
 
         io = imnodes.GetIO()
+
         io.SetLinkDetachedWithModifierClick(im.ImKey.Mod_Ctrl)
         io.SetEmulateThreeButtonMouseMod(im.ImKey.Mod_Alt)
+        io.AltMouseButton = im.MouseButton.Right
 
         self._argHandlers: Dict[str, Type[ImArgHandler]] = {}
 
         self._colors: Dict[str, int] = {}
 
         self.needToSave = False
+
+        self._hoveredNode: Node | None = None
 
     def registerArgHandler(self, datatype: str, handler: Type[ImArgHandler]):
         self._argHandlers[datatype] = handler
@@ -39,30 +43,45 @@ class ImNodeGraph:
         self._colors[datatype] = im.ColorConvertFloat4ToU32(color)
 
     def render(self):
-        imnodes.BeginNodeEditor()
-        imnodes.MiniMap(0.2, imnodes.MiniMapLocation.TopRight)
+        if im.BeginTable("node_graph_editor", 2, flags=im.TableFlags.SizingStretchProp):
+            im.TableNextColumn()
+            im.TableSetupColumn("editor", init_width_or_weight=0.7)
+            imnodes.BeginNodeEditor()
+            imnodes.MiniMap(0.2, imnodes.MiniMapLocation.TopRight)
 
-        self._addNodePopup()
+            self._addNodePopup()
 
-        for node in self.ng:
-            self._renderNode(node)
+            for node in self.ng:
+                self._renderNode(node)
 
-        imnodes.EndNodeEditor()
+            imnodes.EndNodeEditor()
 
-        startPortId = im.IntRef()
-        endPortId = im.IntRef()
-        # This has to happen after EndNodeEditor
-        if imnodes.IsLinkCreated(startPortId, endPortId):
-            self.needToSave = True
-            try:
-                self.ng.makeLinkByID(startPortId.val, endPortId.val)
-            except NodeTypeError:
-                pass  # don't make links if the datatype is wrong
+            self._hoveredNode = None
+            temp = im.IntRef(-1)
+            if imnodes.IsNodeHovered(temp):
+                self._hoveredNode = self.ng._nodeLookup[temp.val]
 
-        linkId = im.IntRef()
-        if imnodes.IsLinkDestroyed(linkId):
-            self.needToSave = True
-            self.ng.unlinkByID(linkId.val)
+            startPortId = im.IntRef()
+            endPortId = im.IntRef()
+            # This has to happen after EndNodeEditor
+            if imnodes.IsLinkCreated(startPortId, endPortId):
+                self.needToSave = True
+                try:
+                    self.ng.makeLinkByID(startPortId.val, endPortId.val)
+                except NodeTypeError:
+                    pass  # don't make links if the datatype is wrong
+
+            linkId = im.IntRef()
+            if imnodes.IsLinkDestroyed(linkId):
+                self.needToSave = True
+                self.ng.unlinkByID(linkId.val)
+
+            im.TableNextColumn()
+
+            if self._hoveredNode is not None:
+                im.Text(self._hoveredNode.docs())
+
+            im.EndTable()
 
     def _renderNode(self, node: Node):
         if not imnodes.IsNodeSelected(node.nodeID):
