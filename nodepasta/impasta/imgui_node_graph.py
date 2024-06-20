@@ -8,9 +8,12 @@ from nodepasta.node import Node
 from nodepasta.ports import IOPort
 from nodepasta.utils import Vec
 from nodepasta.impasta.imgui_arg_handlers import ImArgHandler
+from nodepasta.errors import NodeTypeError
 
 # Add node popup ID
 _ADD_NODE_PU = "Add Node"
+
+DEF_COLOR = im.ColorConvertFloat4ToU32(im.Vec4(1.0, 1.0, 1.0, 1.0))
 
 
 class ImNodeGraph:
@@ -25,8 +28,15 @@ class ImNodeGraph:
 
         self._argHandlers: Dict[str, Type[ImArgHandler]] = {}
 
+        self._colors: Dict[str, int] = {}
+
+        self.needToSave = False
+
     def registerArgHandler(self, datatype: str, handler: Type[ImArgHandler]):
         self._argHandlers[datatype] = handler
+
+    def registerTypeColor(self, datatype: str, color: im.Vec4):
+        self._colors[datatype] = im.ColorConvertFloat4ToU32(color)
 
     def render(self):
         imnodes.BeginNodeEditor()
@@ -43,10 +53,15 @@ class ImNodeGraph:
         endPortId = im.IntRef()
         # This has to happen after EndNodeEditor
         if imnodes.IsLinkCreated(startPortId, endPortId):
-            self.ng.makeLinkByID(startPortId.val, endPortId.val)
+            self.needToSave = True
+            try:
+                self.ng.makeLinkByID(startPortId.val, endPortId.val)
+            except NodeTypeError:
+                pass  # don't make links if the datatype is wrong
 
         linkId = im.IntRef()
         if imnodes.IsLinkDestroyed(linkId):
+            self.needToSave = True
             self.ng.unlinkByID(linkId.val)
 
     def _renderNode(self, node: Node):
@@ -67,23 +82,51 @@ class ImNodeGraph:
         imnodes.EndNodeTitleBar()
 
         for arg in node.args.values():
-            self._argHandlers[arg.argType].render(arg)
+            if self._argHandlers[arg.argType].render(arg):
+                self.needToSave = True
 
         # TODO varports
         for iPort in node.getInputPorts():
+            try:
+                color = iPort.color
+            except:
+                try:
+                    color = self._colors[iPort.port.typeStr]
+                except KeyError:
+                    color = DEF_COLOR
+                iPort.color = color
+            # Set the port color
+            imnodes.PushColorStyle(imnodes.Col.Pin, color)
+            # Render the port
             imnodes.BeginInputAttribute(iPort.portID)
             self._renderPort(iPort)
             imnodes.EndInputAttribute()
+            imnodes.PopColorStyle()
 
         for oPort in node.getOutputPorts():
+            # Set the port color
+            try:
+                color = oPort.color
+            except:
+                try:
+                    color = self._colors[oPort.port.typeStr]
+                except KeyError:
+                    color = DEF_COLOR
+                oPort.color = color
+            imnodes.PushColorStyle(imnodes.Col.Pin, color)
+            # Render the port
             imnodes.BeginOutputAttribute(oPort.portID)
             self._renderPort(oPort)
             imnodes.EndOutputAttribute()
+            # Pop off the color
+            imnodes.PopColorStyle()
 
         imnodes.EndNode()
 
         for link in node:
+            imnodes.PushColorStyle(imnodes.Col.Link, link.pPort.color)
             imnodes.Link(link.linkID, link.pPort.portID, link.cPort.portID)
+            imnodes.PopColorStyle()
 
     def _renderPort(self, port: IOPort):
         im.Text(port.port.name)
@@ -99,6 +142,7 @@ class ImNodeGraph:
 
         for nodeType in self.ng.nodeTypes():
             if im.Selectable(nodeType.NODETYPE):
+                self.needToSave = True
                 pos = im.GetMousePosOnOpeningCurrentPopup()
                 self.ng.addNode(nodeType).pos = Vec(pos.x, pos.y)
 
