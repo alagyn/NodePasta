@@ -58,7 +58,6 @@ class NodeGraph:
                 pass
 
     def _loadFromJSON(self, jGraph):
-        self._idManager.reset()
         nodeList = []
 
         if _NODES not in jGraph or len(jGraph[_NODES]) == 0:
@@ -119,19 +118,25 @@ class NodeGraph:
 
             self.makeLink(pPort, cPort)
 
+    def clear(self):
+        """
+        Clears the current graph
+        """
+        self._nodeLookup = {}
+        self._traversal = None
+        self._idManager.reset()
+
     def loadFromJSON(self, jGraph):
         """
         Clears the current graph and lodds the graph from a json object
         :param jGraph: The JSON dict-like object
         :return: None
         """
-        self._nodeLookup = {}
-        self._traversal = None
+        self.clear()
         try:
             self._loadFromJSON(jGraph)
         except:
-            self._nodeLookup = {}
-            self._traversal = None
+            self.clear()
             raise
 
     def loadFromFile(self, filename: str):
@@ -140,8 +145,7 @@ class NodeGraph:
         :param filename: The graph filename
         :return: None
         """
-        self._nodeLookup = {}
-        self._traversal = None
+        self.clear()
         self._filename = filename
         try:
             with open(filename, mode='r') as f:

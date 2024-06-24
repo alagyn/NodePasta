@@ -15,6 +15,19 @@ _ADD_NODE_PU = "Add Node"
 
 DEF_COLOR = im.ColorConvertFloat4ToU32(im.Vec4(1.0, 1.0, 1.0, 1.0))
 
+HELP_TEXT = (
+    "Controls\n"
+    "------------------------------\n"
+    "[Space Bar] - Add new node\n"
+    "[Left Click] - Select nodes (can box select)\n"
+    "[Right Click] - Pan the canvas\n"
+    "[Backspace/Delete] - Remove selected node\n"
+    "\n"
+    "Click and drag from a port to create a link.\n"
+    "Hold [Control] and Drag a link to disconnect it.\n"
+    "Drop a link on the background to remove it"
+)
+
 
 class ImNodeGraph:
 
@@ -61,6 +74,13 @@ class ImNodeGraph:
             if imnodes.IsNodeHovered(temp):
                 self._hoveredNode = self.ng._nodeLookup[temp.val]
 
+            if im.IsKeyDown(im.ImKey.Backspace) or im.IsKeyDown(im.ImKey.Delete):
+                selectedNodes = im.IntList()
+                imnodes.GetSelectedNodes(selectedNodes)
+                for x in selectedNodes:
+                    imnodes.ClearNodeSelection(x)
+                    self.ng.removeNode(self.ng._nodeLookup[x])
+
             startPortId = im.IntRef()
             endPortId = im.IntRef()
             # This has to happen after EndNodeEditor
@@ -80,6 +100,8 @@ class ImNodeGraph:
 
             if self._hoveredNode is not None:
                 im.Text(self._hoveredNode.docs())
+            else:
+                im.Text(HELP_TEXT)
 
             im.EndTable()
 
