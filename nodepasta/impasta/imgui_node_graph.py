@@ -5,7 +5,7 @@ import imgui.imnodes as imnodes
 
 from nodepasta.nodegraph import NodeGraph
 from nodepasta.node import Node
-from nodepasta.ports import IOPort
+from nodepasta.ports import IOPort, InPort
 from nodepasta.utils import Vec
 from nodepasta.impasta.imgui_arg_handlers import ImArgHandler
 from nodepasta.errors import NodeTypeError
@@ -48,6 +48,8 @@ class ImNodeGraph:
         self.needToSave = False
 
         self._hoveredNode: Node | None = None
+
+        self.showHelp = im.BoolRef(True)
 
     def registerArgHandler(self, datatype: str, handler: Type[ImArgHandler]):
         self._argHandlers[datatype] = handler
@@ -98,10 +100,11 @@ class ImNodeGraph:
 
             im.TableNextColumn()
 
-            if self._hoveredNode is not None:
-                im.Text(self._hoveredNode.docs())
-            else:
-                im.Text(HELP_TEXT)
+            if self.showHelp.val:
+                if self._hoveredNode is not None:
+                    im.Text(self._hoveredNode.docs())
+                else:
+                    im.Text(HELP_TEXT)
 
             im.EndTable()
 
@@ -127,40 +130,11 @@ class ImNodeGraph:
                 self.needToSave = True
 
         # TODO varports
-        for iPort in node.getInputPorts():
-            try:
-                color = iPort.color
-            except:
-                try:
-                    color = self._colors[iPort.port.typeStr]
-                except KeyError:
-                    color = DEF_COLOR
-                iPort.color = color
-            # Set the port color
-            imnodes.PushColorStyle(imnodes.Col.Pin, color)
-            # Render the port
-            imnodes.BeginInputAttribute(iPort.portID)
+        for iPort in node.inputs:
             self._renderPort(iPort)
-            imnodes.EndInputAttribute()
-            imnodes.PopColorStyle()
 
-        for oPort in node.getOutputPorts():
-            # Set the port color
-            try:
-                color = oPort.color
-            except:
-                try:
-                    color = self._colors[oPort.port.typeStr]
-                except KeyError:
-                    color = DEF_COLOR
-                oPort.color = color
-            imnodes.PushColorStyle(imnodes.Col.Pin, color)
-            # Render the port
-            imnodes.BeginOutputAttribute(oPort.portID)
+        for oPort in node.outputs:
             self._renderPort(oPort)
-            imnodes.EndOutputAttribute()
-            # Pop off the color
-            imnodes.PopColorStyle()
 
         imnodes.EndNode()
 
@@ -170,7 +144,49 @@ class ImNodeGraph:
             imnodes.PopColorStyle()
 
     def _renderPort(self, port: IOPort):
-        im.Text(port.port.name)
+        try:
+            color = port.color
+        except:
+            try:
+                color = self._colors[port.port.typeStr]
+            except KeyError:
+                color = DEF_COLOR
+            port.color = color
+        # Set the port color
+        imnodes.PushColorStyle(imnodes.Col.Pin, color)
+        varports = port.getPorts()
+        if port.port.variable:
+            im.Text(port.port.name)
+            im.SameLine()
+            if im.Button(f" + ##{port.portID}"):
+                newPort = port.addVarPort()
+                self.ng._portLookup[newPort.portID] = newPort
+            im.SameLine()
+            im.BeginDisabled(len(varports) == 1)
+            if im.Button(f" - ##{port.portID}"):
+                port.remVarPort()
+                self.ng._portLookup.pop(varports[-1].portID)
+                varports = varports[:-1]
+            im.EndDisabled()
+
+        for varIdx, varport in enumerate(varports):
+            # Render the port
+            isInput = isinstance(port, InPort)
+            if isInput:
+                imnodes.BeginInputAttribute(varport.portID)
+            else:
+                imnodes.BeginOutputAttribute(varport.portID)
+
+            if port.port.variable:
+                im.Text(f"{varIdx}")
+            else:
+                im.Text(port.port.name)
+
+            if isInput:
+                imnodes.EndInputAttribute()
+            else:
+                imnodes.EndOutputAttribute()
+        imnodes.PopColorStyle()
 
     def _addNodePopup(self) -> None:
         if (im.IsKeyDown(im.ImKey.Space) and imnodes.IsEditorHovered() and not im.IsAnyItemHovered()

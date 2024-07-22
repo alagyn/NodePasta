@@ -77,14 +77,21 @@ class Node:
     def _init(
         self, idManager: IDManager, inVarports: Optional[List[int]] = None, outVarPorts: Optional[List[int]] = None
     ):
+        """
+        in/outVarports is a list of the number of var ports for each port
+        """
+
         self.nodeID = -1
 
-        self.args: Dict[str, NodeArg] = {x.name: x.copy()
-                                         for x in self._ARGS}
+        self.args: Dict[str, NodeArg] = {
+            x.name: x.copy()
+            for x in self._ARGS
+        }
 
         self.pos = Vec()
         self.datamap: _DataMap = _DataMap()
 
+        # Initialize to a single varport for each if not specified
         if inVarports is None:
             inVarports = [1 for _ in range(len(self._INPUTS))]
 
@@ -134,8 +141,10 @@ class Node:
         raise NotImplementedError
 
     def unloadArgs(self) -> Dict[str, Any]:
-        return {x.name: x.getJSON()
-                for x in self.args.values()}
+        return {
+            x.name: x.getJSON()
+            for x in self.args.values()
+        }
 
     def loadArgs(self, args: Dict[str, Any]) -> None:
         for key, val in args.items():

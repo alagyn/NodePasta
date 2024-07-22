@@ -13,7 +13,7 @@ from nodepasta.impasta.imgui_arg_handlers import getDefaultArgHandlers
 
 from .example_nodes import const_source, power_node, output_node, sum_node, offset_node, listifier, enumNode
 
-WIDTH = 800
+WIDTH = 1000
 HEIGHT = 600
 
 WINDOW_FLAGS = im.WindowFlags.NoResize | im.WindowFlags.NoCollapse | im.WindowFlags.NoMove

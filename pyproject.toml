@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nodepasta"
-version = "2.0.1"
+version = "2.0.4"
 authors = [{ name = "Alagyn" }]
 description = "A Node Based Visual Scripting System"
 readme = "README.md"
@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 
-dependencies = ["py-imgui-redux==3.2.0"]
+dependencies = ["py-imgui-redux>=3.2.0"]
 
 [project.urls]
 Repository = "https://github.com/alagyn/NodePasta"
