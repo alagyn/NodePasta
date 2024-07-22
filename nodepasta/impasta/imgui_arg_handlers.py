@@ -21,6 +21,8 @@ class IntHandler(ImArgHandler):
 
     @classmethod
     def render(cls, arg: NodeArg) -> bool:
+        if arg.value is None:
+            arg.value = 0
         ref = im.IntRef(arg.value)
         im.SetNextItemWidth(50)
         if im.DragInt(arg.display, ref):
@@ -33,6 +35,8 @@ class FloatHandler(ImArgHandler):
 
     @classmethod
     def render(cls, arg: NodeArg) -> bool:
+        if arg.value is None:
+            arg.value = 0.0
         ref = im.FloatRef(arg.value)
         im.SetNextItemWidth(50)
         if im.DragFloat(arg.display, ref):
