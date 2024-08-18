@@ -62,6 +62,7 @@ class ImNodeGraph:
             im.TableNextColumn()
             im.TableSetupColumn("editor", init_width_or_weight=0.7)
             imnodes.BeginNodeEditor()
+            editorFocus = im.IsWindowFocused()
             imnodes.MiniMap(0.2, imnodes.MiniMapLocation.TopRight)
 
             self._addNodePopup()
@@ -76,12 +77,14 @@ class ImNodeGraph:
             if imnodes.IsNodeHovered(temp):
                 self._hoveredNode = self.ng._nodeLookup[temp.val]
 
-            if im.IsKeyDown(im.ImKey.Backspace) or im.IsKeyDown(im.ImKey.Delete):
-                selectedNodes = im.IntList()
-                imnodes.GetSelectedNodes(selectedNodes)
-                for x in selectedNodes:
-                    imnodes.ClearNodeSelection(x)
-                    self.ng.removeNode(self.ng._nodeLookup[x])
+            if editorFocus and not im.IsAnyItemFocused():
+                if im.IsKeyDown(im.ImKey.Backspace) or im.IsKeyDown(im.ImKey.Delete):
+                    selectedNodes = im.IntList()
+                    imnodes.GetSelectedNodes(selectedNodes)
+                    for x in selectedNodes:
+                        imnodes.ClearNodeSelection(x)
+                        self.ng.removeNode(self.ng._nodeLookup[x])
+                    self.needToSave = True
 
             startPortId = im.IntRef()
             endPortId = im.IntRef()
@@ -201,6 +204,7 @@ class ImNodeGraph:
             if im.Selectable(nodeType.NODETYPE):
                 self.needToSave = True
                 pos = im.GetMousePosOnOpeningCurrentPopup()
-                self.ng.addNode(nodeType).pos = Vec(pos.x, pos.y)
+                pan = imnodes.EditorContextGetPanning()
+                self.ng.addNode(nodeType).pos = Vec(pos.x - pan.x, pos.y - pan.y)
 
         im.EndPopup()
