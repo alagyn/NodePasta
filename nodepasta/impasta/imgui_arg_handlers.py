@@ -3,7 +3,7 @@ from typing import Type
 import imgui as im
 
 from nodepasta.argtypes import NodeArg, EnumNodeArg
-from nodepasta.argtypes import INT, FLOAT, ENUM
+from nodepasta.argtypes import INT, FLOAT, ENUM, STRING
 
 
 class ImArgHandler:
@@ -62,9 +62,24 @@ class EnumHandler(ImArgHandler):
         return out
 
 
+class StringHandler(ImArgHandler):
+
+    @classmethod
+    def render(cls, arg: NodeArg) -> bool:
+        if arg.value is None:
+            arg.value = ""
+        ref = im.StrRef(arg.value, 256)
+        im.SetNextItemWidth(100)
+        if im.InputText(arg.display, ref):
+            arg.value = ref.view()
+            return True
+        return False
+
+
 def getDefaultArgHandlers() -> dict[str, Type[ImArgHandler]]:
     return {
         INT: IntHandler,
         FLOAT: FloatHandler,
-        ENUM: EnumHandler
+        ENUM: EnumHandler,
+        STRING: StringHandler
     }
